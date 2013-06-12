@@ -16,9 +16,11 @@
 
 """ 
 Based in large on old code from github.com/JeffMGreg/PyInterp/
-other entries on this matter:
- - 
+This is a "generic" console; it does not have any cadnano specific
+stuff hardcoded; this must be specified on/after object instantiation.
 
+Other entries on this matter:
+ - 
 """
 
 import os

@@ -52,10 +52,14 @@ class CadnanoAPI(HelpCompatibleObject):
     1) Ammend the _helpstr via the addHelpStr(str) method
     2) Append the helpitems list with a two-tuple containing (header, helptext)
     3) Place a text file in the 'help' directory.
+    
+    Note: This is sort of similar to running cadnano with the "-i" interact argument!
+    You should do this per default.
     """
 
     def __init__(self):
         #self.__super__.__init__()
+        super(HelpCompatibleObject, self).__init__()
         self.config = dict()
 
 
@@ -64,20 +68,42 @@ class CadnanoAPI(HelpCompatibleObject):
 
     def docctrl(self):
         try:
-            return list(self.app().documentControllers())[0]
-        except:
+            # Do NOT use documentControllers.pop()
+            # this will remove the documentController from the app's documentController set :-)
+            # This is how cadnano gets a single documentcontroller (it otherwise loops over all DCs).
+            return list(self.app().documentControllers)[0]
+        except IndexError:
+            print "No documentController in app().documentControllers()."
+            print "Probably no document loaded."
             return None
 
-    def doc():
-        return self.docctrl().document()
+    def doc(self):
+        if self.docctrl():
+            return self.docctrl().document()
 
-    def filename():
-        return self.docctrl().filename()
-    
-    def doctitle():
-        return self.docctrl.documentTitle()
+    def filename(self):
+        if self.docctrl():
+            return self.docctrl().filename()
 
-    def colorSelected(color=None):
+    def doctitle(self):
+        if self.docctrl():
+            return self.docctrl().documentTitle()
+
+    def active_part(self):
+        if self.docctrl():
+            return self.docctrl().activePart()
+
+
+    def active_baseIndex(self):
+        if self.active_part():
+            return self.active_part().activeBaseIndex()
+
+
+    def api_help(self):
+        print "--> This just prints self.help()"
+        self.help()
+
+    def colorSelected(self, color=None):
         prefkey = 'colorSelected'
         if color:
             self.config[prefkey] = color
@@ -90,6 +116,8 @@ class CadnanoAPI(HelpCompatibleObject):
 
     def selectedOligosReal(self):
         """ Return oligos actually selected (not all on helix like cadnano2 does).
+        Note: You need to actually select a strand (red) for this to work, but then
+        I also think it works.
         """
         doc = self.doc()
         sDict = self.doc().selectionDict()
@@ -105,6 +133,8 @@ class CadnanoAPI(HelpCompatibleObject):
 
 
     def getInitialHelpStr(self):
+        """ This method must be overwritten to set the introductory help text
+        """
         helpstr = """
 Help for the Cadnano console and API:
 

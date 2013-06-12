@@ -31,10 +31,25 @@ if not "cadnano_console" in cadnano_console_path:
 
 
 class HelpCompatibleObject(object):
+    """ Produces a 'help compatible' object, i.e. an object that is self-describing to the user
+        from the command line.
+        Help items are stored in self.helpitems, as a two-tuple list in the format:
+        [(topicheader, bodycontent) for helpitem in self.helpitems]
+        
+        Topics can either be added by adding text files to a ./help directory,
+        or they can be added to self.helpitems manually.
+        Note that re-reading the help files with noupdateself=True 
+        will cause existing items in self.helpitems to be dropped,
+        while running parsehelpfiles with reread=True may cause duplicate
+        entries in the helpitems list.
+        But, as long as you dont mess with the defaults, the method should function fine.
+    """
+
     def __init__(self):
         self.helpitems = list()
         self.helptxtfilesread = False
         self._helpstr = self.getInitialHelpStr()
+
 
     def help(self):
         self.parsehelpfiles()
@@ -44,9 +59,11 @@ class HelpCompatibleObject(object):
 
     def parsehelpfiles(self, reread=False, noupdateself=False):
         """
-        This is only called when 
+        This is only called when help is requested by the user, so as to not add an unnessecary 
+        overhead during initialization.
         If reread is set to True, all help files will be read again.
         """
+        print "This is not really implemented yet."
         if self.helptxtfilesread and not reread:
             return
         if noupdateself:
@@ -58,6 +75,7 @@ class HelpCompatibleObject(object):
         for fp in helpfiles:
             with open(fp, 'Ur') as fh:
                 lst.append((fh.name[:-4], fh.read()))
+        self.helptxtfilesread = True
         return lst
 
 

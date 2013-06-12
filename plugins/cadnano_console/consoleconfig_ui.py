@@ -7,6 +7,10 @@
 #
 # WARNING! All changes made in this file will be lost!
 
+"""
+RS: Copied from the autobreak plugin.
+"""
+
 from PyQt4 import QtCore, QtGui
 
 try:

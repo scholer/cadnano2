@@ -148,8 +148,8 @@ class Document(QObject):
         """
         sDict = self._selectionDict
         selectedOs = set()
-        for sS in sDict.iterkeys():
-            for strand in sS:
+        for strandset in sDict.keys():
+            for strand in strandset:
                  selectedOs.add(strand.oligo())
             # end for
         # end for
