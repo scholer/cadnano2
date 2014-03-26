@@ -98,6 +98,9 @@ class CadnanoAPI(HelpCompatibleObject):
         if self.active_part():
             return self.active_part().activeBaseIndex()
 
+    def setActiveBaseIndex(self, index):
+        if self.active_part():
+            self.active_part().setActiveBaseIndex(index)
 
     def api_help(self):
         print "--> This just prints self.help()"
@@ -119,6 +122,7 @@ class CadnanoAPI(HelpCompatibleObject):
         Note: You need to actually select a strand (red) for this to work, but then
         I also think it works.
         """
+        print "Same as doc.selectedOligos()"
         doc = self.doc()
         sDict = self.doc().selectionDict()
         selectedOs = set()

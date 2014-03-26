@@ -2,25 +2,25 @@
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
-#  
+#
 
-""" 
+"""
 Based in large on old code from github.com/JeffMGreg/PyInterp/
 This is a "generic" console; it does not have any cadnano specific
 stuff hardcoded; this must be specified on/after object instantiation.
 
 Other entries on this matter:
- - 
+ -
 """
 
 import os
@@ -37,7 +37,7 @@ except ImportError:
         from PyQt4.QtCore import *
     except ImportError:
         print "ImportError: You don't have PySide or PyQt4"
-        sys.exit()
+        #sys.exit()
 
 
 class MyInterpreter(QWidget):
@@ -51,7 +51,7 @@ class MyInterpreter(QWidget):
         self.textEdit = PyInterp(self)
 
         # this is how you pass in locals to the interpreter
-        self.textEdit.initInterpreter(locals()) 
+        self.textEdit.initInterpreter(locals())
 
         self.resize(650, 300)
         self.centerOnScreen()
@@ -69,24 +69,29 @@ class MyInterpreter(QWidget):
 class PyInterp(QTextEdit):
 
     class InteractiveInterpreter(code.InteractiveInterpreter):
+        """ Why is subclassing needed?
+        """
 
         def __init__(self, locals):
+            # This doesn't seem like the best way to do this??
             code.InteractiveInterpreter.__init__(self, locals)
 
         def runIt(self, command):
+            # Neither does this:
             code.InteractiveInterpreter.runsource(self, command)
 
 
     def __init__(self,  parent):
         super(PyInterp,  self).__init__(parent)
 
+        # And much of this is just fucked:
         sys.stdout              = self
         sys.stderr              = self
         self.refreshMarker      = False # to change back to >>> from ...
         self.multiLine          = False # code spans more than one line
         self.command            = ''    # command to be ran
         self.printBanner()              # print sys info
-        self.marker()                   # make the >>> or ... marker        
+        self.marker()                   # make the >>> or ... marker
         self.history            = []    # list of commands entered
         self.historyIndex       = -1
         self.interpreterLocals  = {}
@@ -116,7 +121,7 @@ class PyInterp(QTextEdit):
         self.write('PyQt4 ' + PYQT_VERSION_STR + '\n')
         msg = 'Type !hist for a history view and !hist(n) history index recall'
         self.write(msg + '\n')
-        
+
 
     def marker(self):
         if self.multiLine:
@@ -138,7 +143,7 @@ class PyInterp(QTextEdit):
         self.interpreter = self.InteractiveInterpreter(self.interpreterLocals)
 
     def updateInterpreterLocals(self, newLocals, varname=None):
-        """ Original code was stupid, would overwrite definitions. 
+        """ Original code was stupid, would overwrite definitions.
         e.g. if called with updateInterpreterLocals(locals()), it will overwrite 'dict', meaning
         I can nolonger make new dictionarys !!
         """
@@ -169,7 +174,7 @@ class PyInterp(QTextEdit):
         return True
 
     def customCommands(self, command):
-        
+
         if command == '!hist': # display history
             self.append('') # move down one line
             # vars that are in the command are prefixed with ____CC and deleted
@@ -297,7 +302,7 @@ class PyInterp(QTextEdit):
                     self.marker()
                     return None
                 return None
-                
+
         # allow all other key events
         super(PyInterp, self).keyPressEvent(event)
 
