@@ -29,8 +29,8 @@ Created by Jonathan deWerd on 2011-01-29.
 
 import sys, imp, util
 import os.path
-from glob import glob
-from code import interact
+#from glob import glob
+#from code import interact
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))+"/include")
 
@@ -38,7 +38,7 @@ global sharedApp
 sharedApp = None
 
 def ignoreEnv():
-    return environ.get('CADNANO_IGNORE_ENV_VARS_EXCEPT_FOR_ME', False)
+    return os.environ.get('CADNANO_IGNORE_ENV_VARS_EXCEPT_FOR_ME', False)
 
 # The global application object used when cadnano is run as a python module
 
@@ -51,7 +51,6 @@ class HeadlessCadnano(object):
         squareCols = 50
     def isGui(self):
         return False
-# end def
 
 def app(appArgs=None):
     global sharedApp
@@ -66,7 +65,6 @@ def initAppWithoutGui(appArgs=sys.argv):
     return sharedApp
 
 def initAppWithGui(appArgs=sys.argv):
-    import util
     util.qtFrameworkList = ['PyQt', 'PySide']
     from cadnanoqt import CadnanoQt
     global sharedApp
@@ -78,9 +76,8 @@ def initAppWithGui(appArgs=sys.argv):
         # myappid = 'harvard.cadnano.cadnano2.2' # arbitrary string
         # ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     return sharedApp
-    
+
 def initAppMaya(appArgs=sys.argv):
-    import util
     util.qtFrameworkList = ['PyQt', 'PySide']
     from cadnanoqt import CadnanoQt
     global sharedApp
@@ -124,8 +121,8 @@ def loadPlugin(f):
         return mod
     except KeyError:
         pass
-    file, filename, data = imp.find_module(name, [path])
-    mod = imp.load_module(name, file, filename, data)
+    fp, filename, data = imp.find_module(name, [path])
+    mod = imp.load_module(name, fp, filename, data)
     loadedPlugins[pluginKey] = mod
     return mod
 
