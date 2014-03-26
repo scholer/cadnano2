@@ -34,12 +34,21 @@ Created by Shawn Douglas on 2010-09-26.
 import sys
 import os
 sys.path.insert(0, '.')
+# The above only adds the user's current working directory to the system path.
+# If cadnano is called from a foreign directory which is it self a python module,
+# i.e. the cwd contains a __init__.py file and a views/ folder, calling cadnano
+# from this folder will cause an error, because cadnano cannot find e.g.
+# the views/preferences.py module (because it is looking in <foreign dir>/views/
+# This will make sure the base cadnano directory is the first in the system path.
+# We use os.path.realpath in case this script is called as a symbolic link
+# not residing in the actual cadnano directory, but e.g. in /usr/bin/
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+
+
 import cadnano
 
 if "-t" in sys.argv:
     os.environ['CADNANO_IGNORE_ENV_VARS_EXCEPT_FOR_ME'] = 'YES'
-
-cadnano.initAppWithGui()
 
 if "-p" not in sys.argv:
     # Having our own NSApplication doesn't play nice with
@@ -50,7 +59,7 @@ if "-p" not in sys.argv:
         import objc
         supportsPythonObjCBridge = True
     except Exception, e:
-        print e
+        print "Not on MAC:", e
     if supportsPythonObjCBridge:
         pass
         from osx.CNApplicationDelegate import sharedDelegate as appDelegate
@@ -60,6 +69,7 @@ if "-p" not in sys.argv:
 
 
 if __name__ == '__main__':
+    cadnano.initAppWithGui()
     app = cadnano.app()
     if "-p" in sys.argv:
         print "Collecting profile data into cadnano.profile"
