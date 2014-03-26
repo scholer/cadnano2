@@ -53,12 +53,12 @@ chosenQtFramework = None
 #     """
 #     special function that allows for the import of PySide or PyQt modules
 #     as available
-# 
+#
 #     name is the name of the Qt top level class such as QtCore, or QtGui
-# 
+#
 #     globaldict is a the module level global namespace dictionary returned from
 #     calling the globals() method
-# 
+#
 #     fromlist is a list of subclasses such as [QFont, QColor], or [QRectF]
 #     """
 #     global qtWrapFramework  # This method is a stub. It gets swapped out for
@@ -152,7 +152,7 @@ def qtWrapImportFromPySide(name, globaldict, fromlist):
     for key in fromlist:
         if key in ('pyqtSignal', 'pyqtSlot', 'QString', 'QStringList'):
             if key == 'pyqtSignal':
-                globaldict[key] = getattr(imports, 'Signal') 
+                globaldict[key] = getattr(imports, 'Signal')
             elif key == 'pyqtSlot':
                 globaldict[key] = getattr(imports, 'Slot')
             elif key == 'QString':
@@ -160,7 +160,7 @@ def qtWrapImportFromPySide(name, globaldict, fromlist):
             elif key == 'QStringList':
                 globaldict[key] = list
         else:
-            binding = getattr(_temp, k, canary)
+            binding = getattr(imports, key, canary)
             if binding == canary:
                 raise KeyError("Couldn't import key '%s' from module '%s'"%(key, modName))
             globaldict[key] = binding
@@ -197,7 +197,7 @@ def trace(n):
 def defineEventForwardingMethodsForClass(classObj, forwardedEventSuffix, eventNames):
     """Automatically defines methods of the form eventName0Event(self, event) on
     classObj that call self.activeTool().eventName0ForwardedEventSuffix(self, event).
-    Note that self here is the 2nd argument of eventName0ForwardedEventSuffix which 
+    Note that self here is the 2nd argument of eventName0ForwardedEventSuffix which
     will be defined with 3 arguments, the first of which will implicitly be the
     activeTool(). If self.activeTool() does not implement eventName0ForwardedEventSuffix,
     no error is raised.
@@ -376,4 +376,3 @@ def findChild(self):
         debugHighlighter.scene().removeItem(debugHighlighter)
         for child, wasVisible in childVisibility:
             child.setVisible(wasVisible)
-    
