@@ -30,7 +30,6 @@ import inspect
 from traceback import extract_stack
 from random import Random
 import string
-import sys
 from os import path
 import platform
 from itertools import dropwhile, starmap
@@ -47,7 +46,7 @@ prng = Random()
 # only module that gets loaded. The main.py of applications actually using qt
 # need to redefine qtFramework to include PyQt and PySide.
 
-qtFrameworkList = ['PyQt', 'Dummy']
+qtFrameworkList = ['PyQt', 'PySide', 'Dummy']
 chosenQtFramework = None
 # def qtWrapImport(name, globaldict, fromlist):
 #     """

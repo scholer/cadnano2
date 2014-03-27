@@ -25,37 +25,57 @@
 """
 cadnanoqt
 Created by Jonathan deWerd on 2012-01-11.
+
+Regarding using IPython as interactive console in cadnano, the conclusion is that
+if a user wants this, he/she can just call main.py with ipython instead of python as:
+    ipython --gui=qt -- main.py -i
+
+### OLD IPYTHON NOTES: ###
+If using IPython console, the IPython interpreter must be quit() before quitting cadnano.
+EDIT: Using IPython is actually rather complicated (althrough easier in the newest dev version):
+-- http://stackoverflow.com/questions/16737323/embedding-ipython-into-a-pyqt4-app
+-- http://stackoverflow.com/questions/14739425/how-to-embed-ipython-kernel-into-pyqt4-program
+-- http://ipython.org/ipython-doc/dev/interactive/qtconsole.html (note: it has to be dev; not in stable yet)
+
+
+## NOTE: At this point, the qt application loop has not actually started.
+## It might be better (safer) to hook up a qtconsole
+## especially if loading ipython or doing other advanced stuff
+
+Despite a lot of attemts, all attempts with using IPython has introduced an issue
+where quitting the application before iPython will keep the thread running in the
+background.
+According to the docs, it seems the intended approach is to use ipython's
+IPython.lib.inputhook and lib.guisupport modules to configure and launch
+the GUI (Qt, Wx, GTK, Tk, ) using python's native PyOSInputHook.
+This would make the code for enabling interactive mode with IPython much overtly elaborate,
+and exceed the benefits -- and it also seems to require a newer version of IPython...
+Attemted IPython methods include embed(), embed_kernel(), start_kernel(),
+ IPython.frontend.terminal.embed.InteractiveShellEmbed()() # formerly IPython.Shell.IPShellEmbeded
+IPython.embed(user_ns=ns) # Naive approach. Makes it hard to properly terminate the thread.
+Maybe the better solution is to just start cadnano with ipython from the command line?
+This works: (the -- ensures that -i is interpreted as an argument to main.py and not ipython)
+ ipython --gui=qt -- main.py -i
+
+
 """
-import util, sys, os
+import util, os
 import cadnano
 try:
-    ## If using IPython console, the IPython interpreter must be quit() before quitting cadnano.
-    ## EDIT: Using IPython is actually rather complicated (althrough easier in the newest dev version):
-    ## -- http://stackoverflow.com/questions/16737323/embedding-ipython-into-a-pyqt4-app
-    ## -- http://stackoverflow.com/questions/14739425/how-to-embed-ipython-kernel-into-pyqt4-program
-    ## -- http://ipython.org/ipython-doc/dev/interactive/qtconsole.html (note: it has to be dev; not in stable yet)
-    raise ImportError("IPython currently disabled, since it makes quitting super flaky.")
-    import IPython
+    # On windows, readline can be provided via the pyreadline package (will create a 'readline' alias file during installation...)
+    import readline     # should be imported first.
 except ImportError:
-    print "(IPython not available, trying to import readline+rlcompleter...)"
-    IPython = None
-    try:
-        # On windows, readline can be provided via the pyreadline package (will create a 'readline' alias file during installation...)
-        import readline     # should be imported first, I believe...
-    except ImportError:
-        print "(readline/rlcompleter not available...)"
-        readline = None
-    else:
-        # If no ImportError...
-        import rlcompleter  # refers to readline during import. rlcompleter
-        # readline.parse_and_bind("tab: complete")
+    print "(readline/rlcompleter not available...)"
+    readline = None
+else:
+    # If no ImportError. rlcompleter is standard lib.
+    import rlcompleter
 
-#from code import interact
 import code
 
-util.qtWrapImport('QtGui', globals(),  ['qApp', 'QApplication', 'QIcon',\
+util.qtWrapImport('QtGui', globals(),  ['qApp', 'QApplication', 'QIcon',
                                         'QUndoGroup'])
-util.qtWrapImport('QtCore', globals(), ['QObject', 'QCoreApplication', 'Qt',\
+util.qtWrapImport('QtCore', globals(), ['QObject', 'QCoreApplication', 'Qt',
                                         'QEventLoop', 'pyqtSignal'])
 #util.qtWrapImport('QtCore', globals(), ['SIGNAL', 'SLOT', 'pyqtSlot'])
 
@@ -95,82 +115,64 @@ class CadnanoQt(QObject):
             self.sharedApp.shouldPerformBoilerplateStartupScript = True
         cadnano.loadAllPlugins()
 
-        ## NOTE: At this point, the qt application loop has not actually started.
-        ## It might be better (safer) to hook up a qtconsole
-        ## especially if loading ipython or doing other advanced stuff
+        cadnanohelp = """
+Some handy locals:
+\ta\tcadnano.app() (the shared cadnano application object)
+\tdc()\tthe document controller
+\td()\tthe last created Document
+\tw()\tshortcut for d().controller().window()
+\tp()\tshortcut for d().selectedPart()
+\tpi()\tthe PartItem displaying p()
+\tvh(i)\tshortcut for p().virtualHelix(i)
+\tvhi(i)\tvirtualHelixItem displaying vh(i)
+
+\tquit()\tquit (for when the menu fails)
+\tgraphicsItm.findChild()  see help(pi().findChild)
+
+dc() controls file creation/loading/saving.
+Use dc().openAfterMaybeSaveCallback(<filepath>) to open a new file.
+If dc() is None, use a.newDocument([fp=filepath]) to create a new controller.
+
+Local modules available for import include:
+    model, controllers, ui, views, data and plugins.
+
+As always, dir() and help() are exceedingly helpful.
+For more detail on methods etc. use inspect.getsource(<module, class or function>)
+
+Note that app quit/exit is a bit flaky when interactive mode is on.
+(This might be because the application loop has not actually been initiated.)
+
+"""
 
         if "-i" in self.argv:
             print "Welcome to cadnano's debug mode!"
-            print "Some handy locals:"
-            print "\ta\tcadnano.app() (the shared cadnano application object)"
+            print cadnanohelp
 
-            print "\tdc()\tthe document controller"
-            def dc():
-                # self.documentControllers is a set. This is an easy way to return an arbitrary element from a set:
-                return next(iter(self.documentControllers), None)
-
-            print "\td()\tthe last created Document"
-            def d():
-                return self.d
-
-            print "\tw()\tshortcut for d().controller().window()"
-            def w():
-                return self.d.controller().window()
-
-            print "\tp()\tshortcut for d().selectedPart()"
-            def p():
-                return self.d.selectedPart()
-
-            print "\tpi()\tthe PartItem displaying p()"
-            def pi():
-                return w().pathroot.partItemForPart(p())
-
-            print "\tvh(i)\tshortcut for p().virtualHelix(i)"
-            def vh(vhref):
-                return p().virtualHelix(vhref)
-
-            print "\tvhi(i)\tvirtualHelixItem displaying vh(i)"
-            def vhi(vhref):
-                partitem = pi()
-                vHelix = vh(vhref)
-                return partitem.vhItemForVH(vHelix)
+            # self.documentControllers is a set. This is an easy way to return an arbitrary element from a set:
+            dc = lambda : next(iter(self.documentControllers), None)
+            d  = lambda : self.d
+            w  = lambda : d().controller().window()
+            p  = lambda : d().selectedPart()
+            pi = lambda : w().pathroot.partItemForPart(p())
+            vh = lambda vhref : p().virtualHelix(vhref)
+            vhi = lambda vhref : pi().vhItemForVH(vh(vhref))
 
             def enableAutocomplete(ns):
                 readline.set_completer(rlcompleter.Completer(ns).complete)
                 readline.parse_and_bind("tab: complete")
 
-            print "\tquit()\tquit (for when the menu fails)"
-            print "\tgraphicsItm.findChild()  see help(pi().findChild)"
-            print "Local modules include: model, controllers, ui, views, data and plugins."
-            print "dc() controls file creation/loading/saving."
-            print "Use dc().openAfterMaybeSaveCallback(<filepath>) to open a new file."
-            print "If dc() is None, use a.newDocument([fp=filepath]) to create a new controller."
-            print "As always, dir() and help() are helpful."
-            print "For more detail, use inspect.getsource(<class or function>)"
-            print "Note that app quit/exit is a bit flaky when interactive mode is on."
-            print "This might be because the application loop has not actually been initiated."
-
             ns = {'a':self, 'd':d, 'dc':dc, 'w':w, 'p':p, 'pi':pi, 'vh':vh, 'vhi':vhi,
-                  'enableAutocomplete':enableAutocomplete, 'stdQuit':quit, 'stdExit':exit}
-            if IPython:
-                print "Starting iPython embedded console...\n"
-                IPython.embed(user_ns=ns) # Take care, makes it hard to terminate the thread.
-                #IPython.embed_kernel(user_ns=ns) # Uh, not what you want... you need a qtconsole to connect.
-                #IPython.start_kernel(user_ns=ns) # Only available in ipython >0.13
-                #from IPython.frontend.terminal.embed import InteractiveShellEmbed
-                #self.ipshell = InteractiveShellEmbed()
-                #self.ipshell() # Still, if you first exit cadnano and then quit() in terminal the thread does not terminate.
-            elif readline:
-                print "Starting standard code.interact mode...\n"
+                  'enableAutocomplete':enableAutocomplete, 'cadnanohelp': cadnanohelp}
+            if readline:
+                print "Enabling line-completion for standard code.interact mode...\n"
+                # This is required, even when invoked via ipython, to get completion for a, d, etc.
                 readline.set_completer(rlcompleter.Completer(ns).complete) # Makes it work :)
-                readline.parse_and_bind("tab: complete")
-                code.interact('', local=ns)
-                #readline.set_completer(rlcompleter.Completer(ns).complete)
-                #readline.parse_and_bind("tab: complete")
-                print "Interactive mode complete..."
+                readline.parse_and_bind("tab: complete") # Not strictly required when invoked via ipython.
             else:
                 print "No readline/completer available..."
-            print "Interactive mode complete!"
+            code.interact("", local=ns)
+            print "Interactive mode with code.interact complete..."
+
         # else:
         #     self.exec_()
 
@@ -187,9 +189,8 @@ class CadnanoQt(QObject):
         """
         if hasattr(self, 'qApp'):
             #self.mainEventLoop = QEventLoop()
-            #self.connect(self.qApp, SIGNAL("lastWindowClosed()"), self.qApp, SLOT("quit()")) # added by RS - but doesn't work... and not required if using qApp.exec_()
-            #self.mainEventLoop.exec_()
-            self.qApp.exec_() # Yeah, this works much better than the above mainEventLoop.exec_(). Who added the extra QEventLoop code ??
+            #self.mainEventLoop.exec_() # Why this?
+            self.qApp.exec_()           # This works better than the above mainEventLoop.exec_(), at least on linux.
 
     def newDocument(self, isFirstNewDoc=False, fp=None):
         """
