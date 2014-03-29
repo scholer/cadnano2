@@ -48,7 +48,7 @@ prng = Random()
 # need to redefine qtFramework to include PyQt and PySide.
 
 # PySide not supported, see docstring for qtWrapImportFromPySide
-qtFrameworkList = ['PyQt', 'Dummy', 'PySide']
+qtFrameworkList = ['PyQt', 'PySide', 'Dummy']
 chosenQtFramework = None
 
 def qtWrapImport(name, globaldict, fromlist):
@@ -127,6 +127,10 @@ def qtWrapImportFromPySide(name, globaldict, fromlist):
     The main motivation for developing PySide was to get a LGPL Qt binding (vs GPL).
     However, since we are writing open-source code, the GPL requirement of PyQt
     is a non-issue.
+    Edit: PySide support is now implemented. Even works with ipython with PySide.
+    Remember that if you want interactive mode with ipython, you should run as:
+        ipython --gui=qt -- main.py -i
+
     """
     modName = 'PySide.%s'%(name)
     imports = __import__(modName, globaldict, locals(), fromlist, -1)

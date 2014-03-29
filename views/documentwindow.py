@@ -173,7 +173,7 @@ class DocumentWindow(QMainWindow, ui_mainwindow.Ui_MainWindow):
     #     """
     #     if painter.paintEngine().type() != QPaintEngine.OpenGL and \
     #         painter.paintEngine().type() != QPaintEngine.OpenGL2:
-    # 
+    #
     #         qWarning("OpenGLScene: drawBackground needs a QGLWidget to be set as viewport on the graphics view");
     #         return
     #     # end if
@@ -181,10 +181,10 @@ class DocumentWindow(QMainWindow, ui_mainwindow.Ui_MainWindow):
     #     GL.glDisable(GL.GL_DEPTH_TEST) # disable for 2D drawing
     #     GL.glClearColor(1.0, 1.0, 1.0, 1.0)
     #     GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-    # 
+    #
     #     painter.endNativePainting()
     # # end def
-    
+
     # def drawBackgroundNonGL(self, painter, rect):
     #     """
     #     This method is for overloading the QGraphicsScene.
@@ -196,7 +196,10 @@ class DocumentWindow(QMainWindow, ui_mainwindow.Ui_MainWindow):
     ### PRIVATE HELPER METHODS ###
     def _readSettings(self):
         self.settings.beginGroup("MainWindow")
-        self.resize(self.settings.value("size", QSize(1100, 800)).toSize())
-        self.move(self.settings.value("pos", QPoint(200, 200)).toPoint())
+        try:
+            self.resize(self.settings.value("size", QSize(1100, 800)).toSize())
+            self.move(self.settings.value("pos", QPoint(200, 200)).toPoint())
+        except AttributeError:
+            self.resize(self.settings.value("size", QSize(1100, 800)))
+            self.move(self.settings.value("pos", QPoint(200, 200)))
         self.settings.endGroup()
-

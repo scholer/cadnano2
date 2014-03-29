@@ -72,46 +72,36 @@ class Preferences(object):
             self.restoreDefaults()
 
     def readPreferences(self):
-        # attribute name, default key in styles, conversion method.
-        prefattrs = [   ('honeycombRows', 'HONEYCOMB_PART_MAXROWS', 'toInt'),
-                        ('honeycombCols', 'HONEYCOMB_PART_MAXCOLS', 'toInt'),
-                        ('honeycombSteps', 'HONEYCOMB_PART_MAXSTEPS', 'toInt'),
-                        ('squareRows', 'SQUARE_PART_MAXROWS', 'toInt'),
-                        ('squareCols', 'SQUARE_PART_MAXCOLS', 'toInt'),
-                        ('squareSteps', 'SQUARE_PART_MAXSTEPS', 'toInt'),
-                        ('autoScaf', 'PREF_AUTOSCAF_INDEX', 'toInt'),
-                        ('startupTool', 'PREF_STARTUP_TOOL_INDEX', 'toInt'),
-                        ('zoomSpeed', 'PREF_ZOOM_SPEED', 'toInt'),
-                        ('zoomOnHelixAdd', 'PREF_ZOOM_AFTER_HELIX_ADD', 'toBool')]
-        native = set(['bool','int','str','object','None','chr','basestring','bin','float'])
-        print native
+        """
+        Switched from very good and pythonic EXPLICIT code
+        to ugly, IMPLICIT code.
+        The code becomes even uglier by the fact that
+        toInt returns [<int value>, <bool convertion ok>], while
+        toBool return simply <bool value>, toString returns <QString>, etc...
+        In any case, it would probably be better to switch from legacy PyQt "API 1"
+        to the newer, native-python typed, PyQt "API 2".
+        """
         self.qs.beginGroup("Preferences")
-        for attr, default, conv in prefattrs:
-            print ">>> (attr, default, conv) = {}".format(((attr, default, conv)))
+        ## In two cases, the attribute name (e.g. "autoScafIndex") differ from the preferences key (e.g. "autoScaf"):
+        prefats = [ ('honeycombRows', 'honeycombRows', 'HONEYCOMB_PART_MAXROWS', 'toInt'),
+                    ('honeycombCols', 'honeycombCols', 'HONEYCOMB_PART_MAXCOLS', 'toInt'),
+                    ('honeycombSteps', 'honeycombSteps', 'HONEYCOMB_PART_MAXSTEPS', 'toInt'),
+                    ('squareRows', 'squareRows', 'SQUARE_PART_MAXROWS', 'toInt'),
+                    ('squareCols', 'squareCols', 'SQUARE_PART_MAXCOLS', 'toInt'),
+                    ('squareSteps', 'squareSteps', 'SQUARE_PART_MAXSTEPS', 'toInt'),
+                    ('autoScafIndex', 'autoScaf', 'PREF_AUTOSCAF_INDEX', 'toInt'), ## FFS.
+                    ('startupToolIndex', 'startupTool', 'PREF_STARTUP_TOOL_INDEX', 'toInt'), ## FFS.
+                    ('zoomSpeed', 'zoomSpeed', 'PREF_ZOOM_SPEED', 'toInt'),
+                    ('zoomOnHelixAdd', 'zoomOnHelixAdd', 'PREF_ZOOM_AFTER_HELIX_ADD', 'toBool')]
+        for attr, prefkey, default, conv in prefats:
             qvar = self.qs.value(attr, getattr(styles, default))
-            if getattr(type(qvar), '__name__') in native:
-                print "qvar is native type {}: {}".format(getattr(type(qvar), '__name__'), qvar)
-                val = qvar
-            else:
-                print "qvar is non-native type '{}' ({}, {})".format(getattr(type(qvar), '__name__'), qvar,
-                                                                    getattr(type(qvar), '__name__') in native)
+            try:
                 val = getattr(qvar, conv)()
-                # toInt returns [<int value>, <bool convertion ok>]
-                # toBool return simply <bool value>, toString returns <QString>, etc...
                 if conv == 'toInt':
                     val = val[0]
+            except AttributeError:
+                val = qvar
             setattr(self, attr, val)
-            print "{} attr set to {}".format(attr, val)
-        #self.honeycombRows = self.qs.value("honeycombRows", styles.HONEYCOMB_PART_MAXROWS).toInt()[0]
-        #self.honeycombCols = self.qs.value("honeycombCols", styles.HONEYCOMB_PART_MAXCOLS).toInt()[0]
-        #self.honeycombSteps = self.qs.value("honeycombSteps", styles.HONEYCOMB_PART_MAXSTEPS).toInt()[0]
-        #self.squareRows = self.qs.value("squareRows", styles.SQUARE_PART_MAXROWS).toInt()[0]
-        #self.squareCols = self.qs.value("squareCols", styles.SQUARE_PART_MAXCOLS).toInt()[0]
-        #self.squareSteps = self.qs.value("squareSteps", styles.SQUARE_PART_MAXSTEPS).toInt()[0]
-        #self.autoScafIndex = self.qs.value("autoScaf", styles.PREF_AUTOSCAF_INDEX).toInt()[0]
-        #self.startupToolIndex = self.qs.value("startupTool", styles.PREF_STARTUP_TOOL_INDEX).toInt()[0]
-        #self.zoomSpeed = self.qs.value("zoomSpeed", styles.PREF_ZOOM_SPEED).toInt()[0]
-        #self.zoomOnHelixAdd = self.qs.value("zoomOnHelixAdd", styles.PREF_ZOOM_AFTER_HELIX_ADD).toBool()
         self.qs.endGroup()
         self.uiPrefs.honeycombRowsSpinBox.setProperty("value", self.honeycombRows)
         self.uiPrefs.honeycombColsSpinBox.setProperty("value", self.honeycombCols)

@@ -114,7 +114,7 @@ class CadnanoQt(QObject):
 
     def finishInit(self):
         self.d = self.newDocument(isFirstNewDoc=True)
-        os.environ['CADNANO_DISCARD_UNSAVED'] = 'True' ## added by Nick 
+        os.environ['CADNANO_DISCARD_UNSAVED'] = 'True' ## added by Nick
         if os.environ.get('CADNANO_DISCARD_UNSAVED', False) and not self.ignoreEnv():
             self.sharedApp.dontAskAndJustDiscardUnsavedChanges = True
         if os.environ.get('CADNANO_DEFAULT_DOCUMENT', False) and not self.ignoreEnv():
@@ -162,6 +162,14 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
             pi = lambda : w().pathroot.partItemForPart(p())
             vh = lambda vhref : p().virtualHelix(vhref)
             vhi = lambda vhref : pi().vhItemForVH(vh(vhref))
+            # Make sure the shortcuts have docstrings so we can use help(d)
+            dc.__doc__ = "Shortcut to the document controller, which is used to load a document, create a new and save."
+            d.__doc__ = "Shortcut to the document holds the differnt parts."
+            w.__doc__ = "Shortcut to the window controller can be used to re-organize the window."
+            p.__doc__ = "Shortcut to the part holds the VirtualHelices."
+            pi.__doc__ = "Shortcut to tart-item: graphical representation for the part. Roughly corresponds to the left 'helix view' panel."
+            vh.__doc__ = "vh(i) --> returns the i'th helix (can also be given as helix coordinates as defined by the part)."
+            vhi.__doc__ = "vhi(i) --> return the virtualHelix item, graphical representation for the helix."
 
             def enableAutocomplete(ns):
                 readline.set_completer(rlcompleter.Completer(ns).complete)
@@ -183,8 +191,11 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         #     self.exec_()
 
     def isInMaya(self):
-        return QCoreApplication.instance().applicationName().contains(
-                                                    "Maya", Qt.CaseInsensitive)
+        appName = QCoreApplication.instance().applicationName()
+        try:
+            return appName.contains("Maya", Qt.CaseInsensitive)
+        except AttributeError:
+            return "maya" in appName.lower()
     def isGui(self):
         return True
 
