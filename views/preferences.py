@@ -72,17 +72,46 @@ class Preferences(object):
             self.restoreDefaults()
 
     def readPreferences(self):
+        # attribute name, default key in styles, conversion method.
+        prefattrs = [   ('honeycombRows', 'HONEYCOMB_PART_MAXROWS', 'toInt'),
+                        ('honeycombCols', 'HONEYCOMB_PART_MAXCOLS', 'toInt'),
+                        ('honeycombSteps', 'HONEYCOMB_PART_MAXSTEPS', 'toInt'),
+                        ('squareRows', 'SQUARE_PART_MAXROWS', 'toInt'),
+                        ('squareCols', 'SQUARE_PART_MAXCOLS', 'toInt'),
+                        ('squareSteps', 'SQUARE_PART_MAXSTEPS', 'toInt'),
+                        ('autoScaf', 'PREF_AUTOSCAF_INDEX', 'toInt'),
+                        ('startupTool', 'PREF_STARTUP_TOOL_INDEX', 'toInt'),
+                        ('zoomSpeed', 'PREF_ZOOM_SPEED', 'toInt'),
+                        ('zoomOnHelixAdd', 'PREF_ZOOM_AFTER_HELIX_ADD', 'toBool')]
+        native = set(['bool','int','str','object','None','chr','basestring','bin','float'])
+        print native
         self.qs.beginGroup("Preferences")
-        self.honeycombRows = self.qs.value("honeycombRows", styles.HONEYCOMB_PART_MAXROWS).toInt()[0]
-        self.honeycombCols = self.qs.value("honeycombCols", styles.HONEYCOMB_PART_MAXCOLS).toInt()[0]
-        self.honeycombSteps = self.qs.value("honeycombSteps", styles.HONEYCOMB_PART_MAXSTEPS).toInt()[0]
-        self.squareRows = self.qs.value("squareRows", styles.SQUARE_PART_MAXROWS).toInt()[0]
-        self.squareCols = self.qs.value("squareCols", styles.SQUARE_PART_MAXCOLS).toInt()[0]
-        self.squareSteps = self.qs.value("squareSteps", styles.SQUARE_PART_MAXSTEPS).toInt()[0]
-        self.autoScafIndex = self.qs.value("autoScaf", styles.PREF_AUTOSCAF_INDEX).toInt()[0]
-        self.startupToolIndex = self.qs.value("startupTool", styles.PREF_STARTUP_TOOL_INDEX).toInt()[0]
-        self.zoomSpeed = self.qs.value("zoomSpeed", styles.PREF_ZOOM_SPEED).toInt()[0]
-        self.zoomOnHelixAdd = self.qs.value("zoomOnHelixAdd", styles.PREF_ZOOM_AFTER_HELIX_ADD).toBool()
+        for attr, default, conv in prefattrs:
+            print ">>> (attr, default, conv) = {}".format(((attr, default, conv)))
+            qvar = self.qs.value(attr, getattr(styles, default))
+            if getattr(type(qvar), '__name__') in native:
+                print "qvar is native type {}: {}".format(getattr(type(qvar), '__name__'), qvar)
+                val = qvar
+            else:
+                print "qvar is non-native type '{}' ({}, {})".format(getattr(type(qvar), '__name__'), qvar,
+                                                                    getattr(type(qvar), '__name__') in native)
+                val = getattr(qvar, conv)()
+                # toInt returns [<int value>, <bool convertion ok>]
+                # toBool return simply <bool value>, toString returns <QString>, etc...
+                if conv == 'toInt':
+                    val = val[0]
+            setattr(self, attr, val)
+            print "{} attr set to {}".format(attr, val)
+        #self.honeycombRows = self.qs.value("honeycombRows", styles.HONEYCOMB_PART_MAXROWS).toInt()[0]
+        #self.honeycombCols = self.qs.value("honeycombCols", styles.HONEYCOMB_PART_MAXCOLS).toInt()[0]
+        #self.honeycombSteps = self.qs.value("honeycombSteps", styles.HONEYCOMB_PART_MAXSTEPS).toInt()[0]
+        #self.squareRows = self.qs.value("squareRows", styles.SQUARE_PART_MAXROWS).toInt()[0]
+        #self.squareCols = self.qs.value("squareCols", styles.SQUARE_PART_MAXCOLS).toInt()[0]
+        #self.squareSteps = self.qs.value("squareSteps", styles.SQUARE_PART_MAXSTEPS).toInt()[0]
+        #self.autoScafIndex = self.qs.value("autoScaf", styles.PREF_AUTOSCAF_INDEX).toInt()[0]
+        #self.startupToolIndex = self.qs.value("startupTool", styles.PREF_STARTUP_TOOL_INDEX).toInt()[0]
+        #self.zoomSpeed = self.qs.value("zoomSpeed", styles.PREF_ZOOM_SPEED).toInt()[0]
+        #self.zoomOnHelixAdd = self.qs.value("zoomOnHelixAdd", styles.PREF_ZOOM_AFTER_HELIX_ADD).toBool()
         self.qs.endGroup()
         self.uiPrefs.honeycombRowsSpinBox.setProperty("value", self.honeycombRows)
         self.uiPrefs.honeycombColsSpinBox.setProperty("value", self.honeycombCols)
@@ -101,7 +130,7 @@ class Preferences(object):
             row.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             ptw.setItem(i, 0, row)
         # self.uiPrefs.helixAddCheckBox.setChecked(self.zoomOnHelixAdd)
-        
+
 
     def restoreDefaults(self):
         self.uiPrefs.honeycombRowsSpinBox.setProperty("value", styles.HONEYCOMB_PART_MAXROWS)
@@ -274,7 +303,7 @@ has already been installed. Replace the currently installed one?")
         mb.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
         mb.exec_()
         return mb.clickedButton() == mb.button(QMessageBox.Yes)
-        
+
     def removePluginsToBeOverwritten(self, filesInZip):
         for fileName, filePath in filesInZip:
             target = os.path.join(cadnano.path(), 'plugins', fileName)

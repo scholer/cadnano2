@@ -1,3 +1,5 @@
+# pylint: disable-msg=C0103,C0303,C0301,W0108,C0111
+# -*- coding: utf-8 -*-
 # The MIT License
 #
 # Copyright (c) 2011 Wyss Institute at Harvard University
@@ -21,6 +23,8 @@
 # THE SOFTWARE.
 #
 # http://www.opensource.org/licenses/mit-license.php
+
+
 
 """
 cadnanoqt
@@ -103,6 +107,7 @@ class CadnanoQt(QObject):
         self.vhi = {}
         self.partItem = None
         self.sharedApp = self
+        self.d = None
 
     def ignoreEnv(self):
         return os.environ.get('CADNANO_IGNORE_ENV_VARS_EXCEPT_FOR_ME', False)
@@ -203,12 +208,12 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         from controllers.documentcontroller import DocumentController
         defaultFile = fp or os.environ.get('CADNANO_DEFAULT_DOCUMENT', None)
         if defaultFile and isFirstNewDoc:
-            defaultFile = path.expanduser(defaultFile)
-            defaultFile = path.expandvars(defaultFile)
+            defaultFile = os.path.expanduser(defaultFile)
+            defaultFile = os.path.expandvars(defaultFile)
             dc = DocumentController()
             doc = dc.document()
             from model.io.decoder import decode
-            decode(doc, file(defaultFile).read())
+            decode(doc, open(defaultFile).read())
             print "Loaded default document: %s" % doc
         else:
             dc = next(iter(self.documentControllers), None)

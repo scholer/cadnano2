@@ -7,7 +7,10 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt4 import QtCore, QtGui
+try:
+    from PyQt4 import QtCore, QtGui
+except ImportError:
+    from PySide import QtCore, QtGui
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -66,4 +69,3 @@ class Ui_AddSeqDialog(object):
         AddSeqDialog.setWindowTitle(QtGui.QApplication.translate("AddSeqDialog", "Choose a sequence", None, QtGui.QApplication.UnicodeUTF8))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabStandard), QtGui.QApplication.translate("AddSeqDialog", "Standard", None, QtGui.QApplication.UnicodeUTF8))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tabCustom), QtGui.QApplication.translate("AddSeqDialog", "Custom", None, QtGui.QApplication.UnicodeUTF8))
-
