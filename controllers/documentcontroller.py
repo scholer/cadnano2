@@ -333,7 +333,11 @@ class DocumentController():
             pass
 
     def saveSVGDialogCallback(self, selected):
-        if isinstance(selected, QStringList) or isinstance(selected, list):
+        """
+        Callback method for saving as SVG file <selected> from ui dialog.
+        """
+        # In PySide, selected would be a tuple...:
+        if isinstance(selected, (QStringList, list, tuple)):
             fname = selected[0]
         else:
             fname = selected
@@ -562,7 +566,7 @@ class DocumentController():
 
     def exportStaplesCallback(self, selected):
         """Export all staple sequences to selected CSV file."""
-        if isinstance(selected, QStringList) or isinstance(selected, list):
+        if isinstance(selected, (QStringList, list, tuple)):
             fname = selected[0]
         else:
             fname = selected
@@ -604,7 +608,7 @@ class DocumentController():
         returns a new document doc, which is then set as the open document
         by newDocument. Calls finalizeImport and disconnects dialog signaling.
         """
-        if isinstance(selected, QStringList) or isinstance(selected, list):
+        if isinstance(selected, (QStringList, list, tuple)):
             fname = selected[0]
         else:
             fname = selected
@@ -624,7 +628,7 @@ class DocumentController():
 
     def saveFileDialogCallback(self, selected):
         """If the user chose to save, write to that file."""
-        if isinstance(selected, QStringList) or isinstance(selected, list):
+        if isinstance(selected, (QStringList, list, tuple)):
             fname = selected[0]
         else:
             fname = selected
