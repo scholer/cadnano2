@@ -732,6 +732,12 @@ class DocumentController():
         return True
 
     def writeDocumentToFile(self, filename=None):
+        """
+        Writes current document to file path given by <filename>.
+        """
+        # PySide dialog will return a tuple of filenames with one item.
+        if isinstance(filename, (QStringList, list, tuple)):
+            filename = filename[0]
         if filename == None:
             assert(not self._hasNoAssociatedFile)
             filename = self.filename()
