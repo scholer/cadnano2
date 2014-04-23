@@ -61,6 +61,7 @@ This works: (the -- ensures that -i is interpreted as an argument to main.py and
 """
 import util, os
 import cadnano
+import cadnano_api
 try:
     # On windows, readline can be provided via the pyreadline package (will create a 'readline' alias file during installation...)
     import readline     # should be imported first.
@@ -109,61 +110,21 @@ class CadnanoQt(QObject):
 
     def finishInit(self):
         self.d = self.newDocument(isFirstNewDoc=True)
-        os.environ['CADNANO_DISCARD_UNSAVED'] = 'True' ## added by Nick 
+        os.environ['CADNANO_DISCARD_UNSAVED'] = 'True' ## added by Nick
         if os.environ.get('CADNANO_DISCARD_UNSAVED', False) and not self.ignoreEnv():
             self.sharedApp.dontAskAndJustDiscardUnsavedChanges = True
         if os.environ.get('CADNANO_DEFAULT_DOCUMENT', False) and not self.ignoreEnv():
             self.sharedApp.shouldPerformBoilerplateStartupScript = True
         cadnano.loadAllPlugins()
 
-        cadnanohelp = """
-Some handy locals:
-\ta\tcadnano.app() (the shared cadnano application object)
-\tdc()\tthe document controller
-\td()\tthe last created Document
-\tw()\tshortcut for d().controller().window()
-\tp()\tshortcut for d().selectedPart()
-\tpi()\tthe PartItem displaying p()
-\tvh(i)\tshortcut for p().virtualHelix(i)
-\tvhi(i)\tvirtualHelixItem displaying vh(i)
-
-\tquit()\tquit (for when the menu fails)
-\tgraphicsItm.findChild()  see help(pi().findChild)
-
-dc() controls file creation/loading/saving.
-Use dc().openAfterMaybeSaveCallback(<filepath>) to open a new file.
-If dc() is None, use a.newDocument([fp=filepath]) to create a new controller.
-
-Local modules available for import include:
-    model, controllers, ui, views, data and plugins.
-
-As always, dir() and help() are exceedingly helpful.
-For more detail on methods etc. use inspect.getsource(<module, class or function>)
-
-Note that app quit/exit is a bit flaky when interactive mode is on.
-(This might be because the application loop has not actually been initiated.)
-
-"""
 
         if "-i" in self.argv:
             print "Welcome to cadnano's debug mode!"
-            print cadnanohelp
 
-            # self.documentControllers is a set. This is an easy way to return an arbitrary element from a set:
-            dc = lambda : next(iter(self.documentControllers), None)
-            d  = lambda : self.d
-            w  = lambda : d().controller().window()
-            p  = lambda : d().selectedPart()
-            pi = lambda : w().pathroot.partItemForPart(p())
-            vh = lambda vhref : p().virtualHelix(vhref)
-            vhi = lambda vhref : pi().vhItemForVH(vh(vhref))
+            # All api shortcut functions have been factored out to the utils module.
+            # (So the functions are easier to access if running cadnano as part of a larger script!)
+            ns = cadnano_api.get_api(self)
 
-            def enableAutocomplete(ns):
-                readline.set_completer(rlcompleter.Completer(ns).complete)
-                readline.parse_and_bind("tab: complete")
-
-            ns = {'a':self, 'd':d, 'dc':dc, 'w':w, 'p':p, 'pi':pi, 'vh':vh, 'vhi':vhi,
-                  'enableAutocomplete':enableAutocomplete, 'cadnanohelp': cadnanohelp}
             if readline:
                 print "Enabling line-completion for standard code.interact mode...\n"
                 # This is required, even when invoked via ipython, to get completion for a, d, etc.
@@ -171,6 +132,7 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
                 readline.parse_and_bind("tab: complete") # Not strictly required when invoked via ipython.
             else:
                 print "No readline/completer available..."
+            print ns['cadnanohelp']
             code.interact("", local=ns)
             print "Interactive mode with code.interact complete..."
 
