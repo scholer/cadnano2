@@ -537,6 +537,10 @@ class DocumentController():
     # end def
 
     def _readSettings(self):
+        """
+        Reads settings.
+        Currenly this just loads the path of the last opened file, which is stored as self._fileOpenPath
+        """
         self.settings.beginGroup("FileSystem")
         try:
             self._fileOpenPath = self.settings.value("openpath", QDir().homePath()).toString()
@@ -545,7 +549,9 @@ class DocumentController():
         self.settings.endGroup()
 
     def _writeFileOpenPath(self, path):
-        """docstring for _writePath"""
+        """
+        Makes sure to save/remember the *directory* path of the last opened file to settings.
+        """
         self._fileOpenPath = path
         self.settings.beginGroup("FileSystem")
         self.settings.setValue("openpath", path)
@@ -617,7 +623,8 @@ class DocumentController():
         fname = str(fname)
         self._writeFileOpenPath(os.path.dirname(fname))
         self.newDocument(fname=fname)
-        decode(self._document, file(fname).read())
+        with open(fname) as fd:
+            decode(self._document, fd.read())
         if hasattr(self, "filesavedialog"): # user did save
             if self.fileopendialog != None:
                 self.fileopendialog.filesSelected.disconnect(\
