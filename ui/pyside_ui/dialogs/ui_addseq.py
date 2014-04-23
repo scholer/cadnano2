@@ -1,63 +1,58 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'dialogs/addseq.ui'
+# Form implementation generated from reading ui file 'addseq.ui'
 #
-# Created: Thu Jul 21 17:35:26 2011
-#      by: PyQt4 UI code generator snapshot-4.8.3-fbc8b1362812
+# Created: Sat Mar 29 21:40:01 2014
+#      by: pyside-uic 0.2.14 running on PySide 1.1.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt4 import QtCore, QtGui
-
-try:
-    _fromUtf8 = QtCore.QString.fromUtf8
-except AttributeError:
-    _fromUtf8 = lambda s: s
+from PySide import QtCore, QtGui
 
 class Ui_AddSeqDialog(object):
     def setupUi(self, AddSeqDialog):
-        AddSeqDialog.setObjectName(_fromUtf8("AddSeqDialog"))
+        AddSeqDialog.setObjectName("AddSeqDialog")
         AddSeqDialog.resize(500, 500)
         AddSeqDialog.setModal(True)
         self.dialogGridLayout = QtGui.QGridLayout(AddSeqDialog)
-        self.dialogGridLayout.setObjectName(_fromUtf8("dialogGridLayout"))
+        self.dialogGridLayout.setObjectName("dialogGridLayout")
         self.tabWidget = QtGui.QTabWidget(AddSeqDialog)
-        self.tabWidget.setObjectName(_fromUtf8("tabWidget"))
+        self.tabWidget.setObjectName("tabWidget")
         self.tabStandard = QtGui.QWidget()
-        self.tabStandard.setObjectName(_fromUtf8("tabStandard"))
+        self.tabStandard.setObjectName("tabStandard")
         self.standardTabGridLayout = QtGui.QGridLayout(self.tabStandard)
-        self.standardTabGridLayout.setObjectName(_fromUtf8("standardTabGridLayout"))
+        self.standardTabGridLayout.setObjectName("standardTabGridLayout")
         self.groupBox = QtGui.QGroupBox(self.tabStandard)
-        self.groupBox.setTitle(_fromUtf8(""))
+        self.groupBox.setTitle("")
         self.groupBox.setFlat(True)
-        self.groupBox.setObjectName(_fromUtf8("groupBox"))
+        self.groupBox.setObjectName("groupBox")
         self.verticalLayout = QtGui.QVBoxLayout(self.groupBox)
-        self.verticalLayout.setObjectName(_fromUtf8("verticalLayout"))
+        self.verticalLayout.setObjectName("verticalLayout")
         self.standardTabGridLayout.addWidget(self.groupBox, 0, 1, 1, 1)
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.standardTabGridLayout.addItem(spacerItem, 0, 2, 1, 1)
         spacerItem1 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.standardTabGridLayout.addItem(spacerItem1, 0, 0, 1, 1)
-        self.tabWidget.addTab(self.tabStandard, _fromUtf8(""))
+        self.tabWidget.addTab(self.tabStandard, "")
         self.tabCustom = QtGui.QWidget()
-        self.tabCustom.setObjectName(_fromUtf8("tabCustom"))
+        self.tabCustom.setObjectName("tabCustom")
         self.verticalLayout_2 = QtGui.QVBoxLayout(self.tabCustom)
-        self.verticalLayout_2.setObjectName(_fromUtf8("verticalLayout_2"))
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.seqTextEdit = QtGui.QTextEdit(self.tabCustom)
-        self.seqTextEdit.setObjectName(_fromUtf8("seqTextEdit"))
+        self.seqTextEdit.setObjectName("seqTextEdit")
         self.verticalLayout_2.addWidget(self.seqTextEdit)
-        self.tabWidget.addTab(self.tabCustom, _fromUtf8(""))
+        self.tabWidget.addTab(self.tabCustom, "")
         self.dialogGridLayout.addWidget(self.tabWidget, 0, 0, 1, 1)
         self.customButtonBox = QtGui.QDialogButtonBox(AddSeqDialog)
         self.customButtonBox.setStandardButtons(QtGui.QDialogButtonBox.Apply|QtGui.QDialogButtonBox.Cancel)
         self.customButtonBox.setCenterButtons(True)
-        self.customButtonBox.setObjectName(_fromUtf8("customButtonBox"))
+        self.customButtonBox.setObjectName("customButtonBox")
         self.dialogGridLayout.addWidget(self.customButtonBox, 1, 0, 1, 1)
 
         self.retranslateUi(AddSeqDialog)
         self.tabWidget.setCurrentIndex(0)
-        QtCore.QObject.connect(self.customButtonBox, QtCore.SIGNAL(_fromUtf8("rejected()")), AddSeqDialog.reject)
-        QtCore.QObject.connect(self.customButtonBox, QtCore.SIGNAL(_fromUtf8("clicked(QAbstractButton*)")), AddSeqDialog.accept)
+        QtCore.QObject.connect(self.customButtonBox, QtCore.SIGNAL("rejected()"), AddSeqDialog.reject)
+        QtCore.QObject.connect(self.customButtonBox, QtCore.SIGNAL("clicked(QAbstractButton*)"), AddSeqDialog.accept)
         QtCore.QMetaObject.connectSlotsByName(AddSeqDialog)
         AddSeqDialog.setTabOrder(self.customButtonBox, self.tabWidget)
         AddSeqDialog.setTabOrder(self.tabWidget, self.seqTextEdit)

@@ -63,6 +63,7 @@ This works: (the -- ensures that -i is interpreted as an argument to main.py and
 """
 import util, os
 import cadnano
+qt_selection = util.chosenQtFramework or util.find_available_qt_framework()
 try:
     # On windows, readline can be provided via the pyreadline package (will create a 'readline' alias file during installation...)
     import readline     # should be imported first.
@@ -174,6 +175,11 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
                 readline.parse_and_bind("tab: complete") # Not strictly required when invoked via ipython.
             else:
                 print "No readline/completer available..."
+            if qt_selection == 'pyside':
+                print "NOTE NOTE: There seems to be an issue running cadnano with PySide in interactive mode.\
+If the UI does not load properly, hit Ctrl+D to exit the interactive prompt. \
+You should still be able to run interactive mode with ipython with:   ipython --gui=qt -- main.py -i   \
+(tested with ipython 1.1.0 with PySide on Windows)"
             code.interact("", local=ns)
             print "Interactive mode with code.interact complete..."
 

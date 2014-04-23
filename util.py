@@ -47,7 +47,6 @@ prng = Random()
 # only module that gets loaded. The main.py of applications actually using qt
 # need to redefine qtFramework to include PyQt and PySide.
 
-# PySide not supported, see docstring for qtWrapImportFromPySide
 qtFrameworkList = ['PyQt', 'PySide', 'Dummy']
 chosenQtFramework = None
 
@@ -362,3 +361,20 @@ def findChild(self):
         debugHighlighter.scene().removeItem(debugHighlighter)
         for child, wasVisible in childVisibility:
             child.setVisible(wasVisible)
+
+
+qt_available = [None]
+
+def find_available_qt_framework():
+    if qt_available[0]:
+        return qt_available[0]
+    try:
+        import PyQt4
+        qt_available[0] = 'pyqt4'
+    except ImportError:
+        try:
+            import PySide
+            qt_available[0] = 'pyside'
+        except ImportError:
+            pass
+    return qt_available[0]

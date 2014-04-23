@@ -27,7 +27,19 @@ config
 Created by Jonathan deWerd on 2012-01-19.
 """
 import util, cadnano
-import autobreakconfig_ui
+
+# relying on util.chosenQtFramework doesn't seem reliable.
+# Well, I have to see what is available:
+qt_available = util.chosenQtFramework or util.find_available_qt_framework()
+
+if qt_available.lower() == 'pyside':
+    print "Autobreak: Using PySide."
+    from pyside_ui import autobreakconfig_ui
+else:
+    print "Autobreak: Using PyQt4."
+    import autobreakconfig_ui
+
+print "autobreakconfig_ui: ", autobreakconfig_ui, dir(autobreakconfig_ui)
 import autobreak
 util.qtWrapImport('QtGui', globals(), ['QDialog', 'QKeySequence', 'QDialogButtonBox'])
 util.qtWrapImport('QtCore', globals(), ['Qt'])
