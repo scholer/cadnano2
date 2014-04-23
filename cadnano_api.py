@@ -82,10 +82,12 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
     def a():
         return app or cadnano.app()
     def d():
-        """ Returns the current document. """
+        """
+        Shortcut to the current document. The document can hold one (and in theory more) parts.
+        """
         return a().d
     def dc():
-        """ Returns the current document-controller. """
+        """ Shortcut to the current document-controller, which is used to e.g. create new/load/save documents. """
         # self.documentControllers is a set. Using next(iter(<set>)) is an easy way to return an arbitrary element from a set:
         # return next(iter(app.documentControllers), None)
         # Edit: Probably more consistent to use
@@ -94,22 +96,23 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         except AttributeError:
             pass
     def w():
-        """ Returns the window for the current document. """
+        """ Shortcut to the window for the current document. """
         return d().controller().window()
     def p():
         """
-        Returns the current part (corresponds roughly to the set of virtual helices handled by the document).
+        Shortcut to the current part. The part contains the virtual helices.
+        Corresponds roughly to the set of virtual helices handled by the document).
         Should also be available as dc().activePart()
         """
         return d().selectedPart()
     def pi():
-        """ Returns the PartItem(QGraphicsRectItem) UI object representing the current part, p(). """
+        """ Shortcut to the PartItem(QGraphicsRectItem) UI item representing the current part, p(). """
         return w().pathroot.partItemForPart(p())
     def vh(vhref):
         """ Returns the current part's VirtualHelix given by <vhref>. <vhref> can be an index or a coordinate. """
         return p().virtualHelix(vhref)
     def vhi(vhref):
-        """ Returns the VirtualHelixItem(QGraphicsPathItem) UI object representing the virtual helix given by <vhref>. """
+        """ Returns the VirtualHelixItem(QGraphicsPathItem) UI item representing the virtual helix given by <vhref>. """
         return pi().vhItemForVH(vh(vhref))
 
 
