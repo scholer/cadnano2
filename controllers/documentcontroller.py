@@ -33,7 +33,7 @@ import util
 util.qtWrapImport('QtCore', globals(), ['QDir', 'QFileInfo', 'QRect',
                                         'QString', 'QStringList', 'QSettings',
                                         'QSize', 'Qt'])
-util.qtWrapImport('QtGui', globals(), ['QApplication', 'QDialog', 
+util.qtWrapImport('QtGui', globals(), ['QApplication', 'QDialog',
                                        'QDockWidget', 'QFileDialog',
                                        'QKeySequence', 'QGraphicsItem',
                                        'QMainWindow',
@@ -255,7 +255,7 @@ class DocumentController():
         3. Create a new document and swap it into the existing ctrlr/window.
         """
         # clear/reset the view!
-        
+
         if len(self._document.parts()) == 0:
             return  # no parts
         if self.maybeSave() == False:
@@ -439,7 +439,7 @@ class DocumentController():
     def actionModifySlot(self):
         """
         Notifies that part root items that parts should respond to modifier
-        selection signals. 
+        selection signals.
         """
         # uncomment for debugging
         # isChecked = self.win.actionModify.isChecked()
@@ -533,12 +533,18 @@ class DocumentController():
     # end def
 
     def _readSettings(self):
+        """
+        Reads settings.
+        Currenly this just loads the path of the last opened file, which is stored as self._fileOpenPath
+        """
         self.settings.beginGroup("FileSystem")
         self._fileOpenPath = self.settings.value("openpath", QDir().homePath()).toString()
         self.settings.endGroup()
 
     def _writeFileOpenPath(self, path):
-        """docstring for _writePath"""
+        """
+        Makes sure to save/remember the *directory* path of the last opened file to settings.
+        """
         self._fileOpenPath = path
         self.settings.beginGroup("FileSystem")
         self.settings.setValue("openpath", path)
@@ -547,7 +553,7 @@ class DocumentController():
     ### SLOT CALLBACKS ###
     def actionNewSlotCallback(self):
         """
-        Gets called on completion of filesavedialog after newClicked's 
+        Gets called on completion of filesavedialog after newClicked's
         maybeSave. Removes the dialog if necessary, but it was probably
         already removed by saveFileDialogCallback.
         """
@@ -581,7 +587,7 @@ class DocumentController():
 
     def newClickedCallback(self):
         """
-        Gets called on completion of filesavedialog after newClicked's 
+        Gets called on completion of filesavedialog after newClicked's
         maybeSave. Removes the dialog if necessary, but it was probably
         already removed by saveFileDialogCallback.
         """
@@ -610,7 +616,8 @@ class DocumentController():
         fname = str(fname)
         self._writeFileOpenPath(os.path.dirname(fname))
         self.newDocument(fname=fname)
-        decode(self._document, file(fname).read())
+        with open(fname) as fd:
+            decode(self._document, fd.read())
         if hasattr(self, "filesavedialog"): # user did save
             if self.fileopendialog != None:
                 self.fileopendialog.filesSelected.disconnect(\
@@ -754,4 +761,3 @@ class DocumentController():
     def actionFeedbackSlot(self):
         import webbrowser
         webbrowser.open("http://cadnano.org/feedback")
-
