@@ -24,8 +24,6 @@
 #
 # http://www.opensource.org/licenses/mit-license.php
 
-
-
 """
 cadnanoqt
 Created by Jonathan deWerd on 2012-01-11.
@@ -162,14 +160,6 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
             pi = lambda : w().pathroot.partItemForPart(p())
             vh = lambda vhref : p().virtualHelix(vhref)
             vhi = lambda vhref : pi().vhItemForVH(vh(vhref))
-            # Make sure the shortcuts have docstrings so we can use help(d)
-            dc.__doc__ = "Shortcut to the document controller, which is used to load a document, create a new and save."
-            d.__doc__ = "Shortcut to the document holds the differnt parts."
-            w.__doc__ = "Shortcut to the window controller can be used to re-organize the window."
-            p.__doc__ = "Shortcut to the part holds the VirtualHelices."
-            pi.__doc__ = "Shortcut to tart-item: graphical representation for the part. Roughly corresponds to the left 'helix view' panel."
-            vh.__doc__ = "vh(i) --> returns the i'th helix (can also be given as helix coordinates as defined by the part)."
-            vhi.__doc__ = "vhi(i) --> return the virtualHelix item, graphical representation for the helix."
 
             def enableAutocomplete(ns):
                 readline.set_completer(rlcompleter.Completer(ns).complete)
