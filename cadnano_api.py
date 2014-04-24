@@ -22,6 +22,8 @@
 #
 # http://www.opensource.org/licenses/mit-license.php
 
+# pylint: disable-msg=W0212
+
 """
 
 """
@@ -35,13 +37,28 @@ except ImportError:
     readline = None
 
 import inspect
+import time, timeit
+
+animators = list()
+ANIMATE_DURATION_MSEC = 500
+ANIMATE_EASINGCURVE = 0
+# 0=linear, 1=InQuad, 2=OutQuad, ..., 40=OutInBounce
+# Works well: 0, (1, 19,
+# http://qt-project.org/doc/qt-4.8/qeasingcurve.html
+
+# (last_selected_strand, current_follow_strand)
+current_follow_strand_tuple = [(None, None)]
 
 
 def get_api(app=None):
     """
     Returns a namespace dict using app as base.
-    app should be a
-    If app=None, uses cadnano.app().
+    <app> should be a cadnano app. If app=None, tries to import cadnano module and use cadnano.app().
+
+    A convenient way to invoke this is:
+    locals().update(cadnano_api.get_api(a()))
+
+    If you need to reload the api module: reload(cadnano_api)
     """
 
     # This needs to be split out to separate module if you want to use cadnano.app()
@@ -114,7 +131,30 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
     def vhi(vhref):
         """ Returns the VirtualHelixItem(QGraphicsPathItem) UI item representing the virtual helix given by <vhref>. """
         return pi().vhItemForVH(vh(vhref))
-
+    def pathview():
+        """
+        Returns the documentwindow's QGraphicsView pathview, displaying the scene.
+        For slice view, use w().sliceGraphicsView
+        """
+        return w().pathGraphicsView
+    def pathscene():
+        """
+        Returns the documentwindow's QGraphicScene path scene.
+        For slice scene, use w().slicescene
+        """
+        return w().pathscene
+    def pathroot():
+        """
+        Returns the root QGraphicsRectItem object for the path scene documentwindow's path scene.
+        For slice root, use w().sliceroot
+        """
+        return w().pathroot
+    def first(seq):
+        """
+        Return the first encountered element in seq.
+        If seq is unordered (e.g. a map), returns an arbitrary element, without removing it.
+        """
+        return next(iter(seq))
 
 
 
@@ -137,6 +177,8 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         selectedStrands = {strand for strandSet, strands in d().selectionDict().items() for strand in strands}
         return selectedStrands
 
+    def get_first_selected_strand():
+        return first(get_selected_strands())
 
     ### Oligo shortcuts ###
 
@@ -212,73 +254,212 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
 
         vhitem.childItems()
         """
+        # When a strand is selected, it is REMOVED from vhitem.childItems() ??
+        # When deselected, the strand is included in vhitem.childItems() again ??
+        # StrandItem.PathRootItem.SelectionItemGroup(QGraphicsItemGroup).addToGroup method
+        # strandItem._viewroot.strandItemSelectionGroup().addToGroup(strandItem)
+        #   "Adds the given item and item's child items to this item group.
+        #   The item and child items will be reparented to this group,
+        #   but its position and transformation relative to the scene will stay intact."
+        # So... it is probably this re-parenting which does it.
+        # Which just means that you should grab stranditem from the viewroot.strandItemSelectionGroup() instead.
         vhitem = vhi(strand.virtualHelix())
-        strandItem = next(sI for sI in vhitem.childItems() if getattr(sI, '_modelStrand', None) == strand)
+        try:
+            strandItem = next(item for item in vhitem.childItems() if getattr(item, '_modelStrand', None) == strand)
+        except StopIteration:
+            sisg = vhitem.viewroot().strandItemSelectionGroup()
+            strandItem = next((item for item in sisg.childItems() if getattr(item, '_modelStrand', None) == strand), None)
+        # Alternatively, you could search for the strand item in the list of path scene items:
+        # strandItem = next((item for item in pathscene().items() if getattr(item, '_modelStrand', None) == strand), None)
         return strandItem
 
-    def ensure_strand_is_visible(strand):
+    def get_selected_stranditems():
         """
+        Returns selected StrandItems in the path view.
+        """
+        sisg = pathroot().strandItemSelectionGroup()    # This includes both StrandItems as well as caps, xovers, etc.
+        # Alternatively, you could use pathscene().selectedItems()  # would return all selected items, not just strand-related.
+        stranditems = [item for item in sisg.childItems() if hasattr(item, '_modelStrand')]
+        return stranditems
+
+    def get_first_selected_item(key=None):
+        candidates = pathroot().strandItemSelectionGroup().childItems()
+        if key:
+            it = (item for item in candidates if key(item))
+        else:
+            it = iter(candidates)
+        return next(it, None)
+
+    def centerOnSelected(key=None):
+        """
+        Using pathview().centerOn(...)
+        Works sort-of, but as you move around, it stops working.
+        """
+        item = get_first_selected_item(key)
+        if not item:
+            return
+        # if item is a strandItem, then its scenePos will be that of its helix.
+        # If it on the other hand is an endpoint or similar, then it seems to be ok.
+        # Edit: Actually, it they might be equivalent.
+        # The difference migth be if the parent pos changes.
+        # AND, UPON SELECTION, AN ITEM IS RE-PARENTED TO THE SELECTION GROUP!!
+        try:
+            vhitem = item.virtualHelixItem()
+        except AttributeError:
+            # E.g. EndPointItems, caps, etc, has no VhItem, position should be in scene coordinates:
+            pathview().centerOn(item.scenePos())
+        else:
+            # Transform the item
+            pathview().centerOn(vhitem.mapToScene(*linecenter(item.line())))
+
+
+    def linecenter(qLine):
+        x1, y1 = qLine.x1(), qLine.y1()
+        x2, y2 = qLine.x2(), qLine.y2()
+        return ((x1+x2)/2.0, (y1+y2)/2.0)
+
+    def getRealItemScenePos(item):
+        """
+        Returns item's real position in scene space. Mostly for e.g. stranditems.
+        This will change as the root item is moved round the scene,
+        but should not change when zooming.
+        """
+        view = pathview()
+        try:
+            vhitem = item.virtualHelixItem()
+            linepos = linecenter(item.line()) # StrandItem lines are drawn in the virtual-helix space.
+        except AttributeError:
+            # E.g. EndPointItems, caps, etc, has no VhItem, position should be in scene coordinates:
+            return item.scenePos()
+        # Should I map to scene space or maybe use pathrootitem, i.e. vhitem.mapToItem(pathroot(), *linepos) ?
+        # mapping to pathroot produces constant result independent of zoom and transform.
+        # mapping to scene produces variable results.
+        return vhitem.mapToScene(*linepos)
+
+    def getViewCenterPos(relativeToItem=None):
+        """
+        Returns QPointF with the view's center in scene space.
+        """
+        view = pathview()
+        if relativeToItem is None:
+            return view.mapToScene(view.rect().center())
+        else:
+            return view.mapToItem(relativeToItem, view.rect().center())
+
+
+
+    def animate_translate(item, dx, dy, msec=ANIMATE_DURATION_MSEC):
+        """
+        If you move an item in a single translation, it can sometimes be hard to
+        follow with your eyes.
+        Translating in steps might help.
+        This uses deprecated QGraphicsItemAnimation
+        """
+        # based on http://engineersjourney.wordpress.com/2012/09/05/pyqt-and-animating-qgraphicsitem-objects/
+        # see also: https://github.com/Werkov/PyQt4/tree/master/examples/animation
+        try:
+            from PyQt4.QtGui import QTransform
+            from PyQt4.QtCore import QPropertyAnimation, pyqtProperty, QObject, QEasingCurve
+        except ImportError:
+            from PySide.QtGui import QTransform
+            from PySide.QtCore import QPropertyAnimation, pyqtProperty, QObject, QEasingCurve
+
+        class TranslationAdaptor(QObject):
+            def __init__(self, parent, object_to_animate, dx, dy):
+                """
+                Default constructor
+                """
+                super(TranslationAdaptor, self).__init__() # Invoke QObject init
+                self.object_to_animate = object_to_animate
+                self.t0 = t0 = object_to_animate.transform()
+                self.x0 = t0.dx()
+                self.y0 = t0.dy()
+                self.dx = dx
+                self.dy = dy
+                self._progress = 0.0
+
+            def getNewTransform(self, progress):
+                return self.t0.fromTranslate(self.x0+self.dx*progress,
+                                             self.y0+self.dy*progress)
+
+            def _getProgress(self):
+                return self._progress
+            def _setProgress(self, progress):
+                """ Value is percentage of total move, from 0..1 """
+                #progress = p.x()
+                tnew = self.getNewTransform(progress)
+                self.object_to_animate.setTransform(tnew)
+                self._progress = progress
+                #print "Progress: %s, dx(), dy(): %s" % (progress, (self.object_to_animate.transform().dx(), self.object_to_animate.transform().dy()))
+            Progress = pyqtProperty(float, _getProgress, _setProgress)
+
+        transform_adaptor = TranslationAdaptor(item, item, dx, dy)
+        animation = QPropertyAnimation(transform_adaptor, 'Progress')
+        animation.setDuration(msec)
+        #t0 = item.transform()
+        animation.setStartValue(0.0)
+        #newx, newy = t0.dx(), t0.dy()
+        #t1 = t0.fromTranslate(newx, newy)
+        animation.setEndValue(1.0)
+        # EasingCurves: http://qt-project.org/doc/qt-4.8/qeasingcurve.html
+        animation.setEasingCurve(QEasingCurve(ANIMATE_EASINGCURVE))
+
+        print "Starting animation..."
+        animation.start()
+        print "Moved dx=%s, dy=%s." % (dx, dy)
+        animators.append(animation)
+        return animation # Need to capture this, or it will be garbage-collected!
+
+
+
+
+
+    def centerOnStrand(strand=None, animate=True):
+        """
+        Note: Animate doesn't work. It proved more troublesome than I had first imagined...
+
         Using QGraphicsView.centerOn (self, QPointF pos)
         derived as CustomQGraphicsView class, instanced as obj w().sliceGraphicsView and w().self.pathGraphicsView
-        """
-        si = get_stranditem_for_strand(strand)
-        si.ensureVisible()      # doesn't work?
-        # Alternatively, grab the graphicsView and use centerOn()
-        pos = si.scenePos()     # better than .pos() ?
-        #vr = si.viewroot()
-        # For some reason, pos coordinates are currently negative floats;
-        # centerOn expects positive integers.
-        w().pathGraphicsView.centerOn(pos)
-        # edit, probably use partItem, which shows the part in the path view:
-        # partItem is showed on top of pathview, and there is a transform and a matrix between the two.
-        # pi().rect() --> total partItem extend.
-        #pi().
-        # Question: when you "move around" with ctrl+drag, do you
-        # 1) Move all elements within a fixed view?
-        # 2) Move the view, keeping the items in place?
-        # QGraphicsView.ScrollHandDrag      # ./views/customqgraphicsview.py:91, as dragMode(), adjusted with setDragMode
-        # scene.sceneRect() -> sceene dimensions.
 
-        # New attempt, inferred from UI keyboard/mouse events in customqgraphicsview.py:350-
+        About the QGraphicsScene--QGraphicsView architecture:
 
-        # if event.key() == Qt.Key_Up:
-        #   self.sceneRootItem.translate(0,self.keyPanDeltaY())
-        #pathview.sceneRootItem.translate(0,self.keyPanDeltaY())
-        # (mousewheel does pathview.zoomIn/Out(0.03) )
-        # self._key_mod = Qt.Key_Control
-        # CustomQGraphicsView.zoomToFit() is also a good reference...
+                          placed on                     viewed with
+         QGraphicsItem  -----------> QGraphicsScene   -------------> QGraphicsView
+         StrandItem                  QGraphicsScene                  QCustomGraphicsView,  # cadnano classes
+         stranditem                  w().pathscene                   w().pathGraphicsView
+         where w() is a the DocumentWindow(QMainWindow) view.
 
-        # pathview == w().pathGraphicsView          (TRUE)  - The window widget displaying the path scene
-        # pathview.sceneRootItem == si.viewroot()   (TRUE)  - ?
-        # pathview.scene() == si.scene()            (TRUE)  - Scene is...?
-        # pathview in si.scene().views()            (TRUE)  -
+         See also:
+         - http://qt-project.org/doc/qt-4.8/graphicsview.html - background info/guide.
 
-        # StrandItem inheritance:
-        # - QGraphicsLineItem
-        # --- QGraphicsItem         Creates a 2D item for a QGraphicsScene. http://qt-project.org/doc/qt-4.8/qgraphicsitem.html
+         What is the rootItem objects, e.g. w().pathRoot pathview.pathrootitem.PathRootItem(QGraphicsRectItem)?
+         - It creates a pathview.partitem.PartItem(QGraphicsRectItem) when a signal is sent to its partAddedSlot
+         - Contains dicts for selection and filtering, e.g. self._strandItemSelectionGroup, self._vhiHSelectionGroup, self._selectionFilterDict
+         I guess it is sort of the "main" QGraphicsItem in the scene...
 
-        # QGraphicsScene
+         cadnano access:
+         pathview == w().pathGraphicsView          (TRUE)  - The window widget displaying the path scene
+         pathview.scene() == si.scene()            (TRUE)  - Scene is...?
+         pathview.sceneRootItem == si.viewroot()   (TRUE)  - ?
+         pathview in si.scene().views()            (TRUE)
 
-        # scene.sceneRect()         # Scene's Bounding Rectangle, the extend of the scene.
+         StrandItem inheritance:
+         - QGraphicsLineItem
+         --- QGraphicsItem         Creates a 2D item for a QGraphicsScene. http://qt-project.org/doc/qt-4.8/qgraphicsitem.html
 
-        # Pathview inheritance:
-        # - CustomQGraphicsView         # cadnano graphicsview baseclass
-        # --- QGraphicsView             # "The QGraphicsView class provides a widget for displaying the contents of a QGraphicsScene".
-        # -----
+         QGraphicsScene
+         scene.sceneRect()         # Scene's Bounding Rectangle, the extend of the scene.
+         Scene does not seem to contain much useful methods; mostly just event stuff.
 
-        #                 placed on                     viewed with
-        # QGraphicsItem  -----------> QGraphicsScene   -------------> QGraphicsView
-        # StrandItem                  QGraphicsScene                  QCustomGraphicsView,  # cadnano classes
-        # stranditem                  w().pathscene                   w().pathGraphicsView
-        # where w() is a the DocumentWindow(QMainWindow) view.
+         Pathview inheritance:
+         - CustomQGraphicsView         # cadnano graphicsview baseclass
+         --- QGraphicsView             # "The QGraphicsView class provides a widget for displaying the contents of a QGraphicsScene".
 
-        # See also:
-        # - http://qt-project.org/doc/qt-4.8/graphicsview.html - background info/guide.
+        Other COTCHA's:
+        - si.ensureVisible()      # doesn't work  -- that ensureVisible is for standard widgets I think.
+        - pathroot.moveBy(dx, dy) # Uses the pos() coordinate system.
 
-        # What is the rootItem objects, e.g. w().pathRoot pathview.pathrootitem.PathRootItem(QGraphicsRectItem)?
-        # - It creates a pathview.partitem.PartItem(QGraphicsRectItem) when a signal is sent to its partAddedSlot
-        # - Contains dicts for selection and filtering, e.g. self._strandItemSelectionGroup, self._vhiHSelectionGroup, self._selectionFilterDict
-        # I guess it is sort of the "main" QGraphicsItem in the scene...
+Old comments:
 
         # Approach
         # 1) Use si.scenePos or maybe si.transformation().m11() or something relative to vhi or something to get pos for stapleItem.
@@ -287,6 +468,173 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         #       edit: pathview.rect() and .pos() refers to the position of the pathview window within the documentwindow.
         #       pathview is a CustomQGraphicsView. You need the scene stuff, maybe?
         #       pathview.transform().m11() is changed upon zooming.
+        # w().pathGraphicsView.centerOn(pos)  # would not work, you are centering the whole document window.
+        # edit, probably use partItem, which shows the part in the path view:
+        # partItem is showed on top of pathview, and there is a transform and a matrix between the two.
+        # pi().rect() --> total partItem extend.
+        #pi().
+
+       # Question: when you "move around" with ctrl+drag, do you
+        # 1) Move all elements within a fixed view?
+        # 2) Move the view, keeping the items in place?
+        # QGraphicsView.ScrollHandDrag      # ./views/customqgraphicsview.py:91, as dragMode(), adjusted with setDragMode
+        # scene.sceneRect() -> sceene dimensions.
+
+        # New attempt, inferred from UI keyboard/mouse events in customqgraphicsview.py:350-
+        # It would seem that in cadnano, the scene root item is translated (rather than "moving the view") ?
+        # if event.key() == Qt.Key_Up:
+        #   self.sceneRootItem.translate(0,self.keyPanDeltaY())
+        #pathview.sceneRootItem.translate(0,self.keyPanDeltaY())
+        # (mousewheel does pathview.zoomIn/Out(0.03) )
+        # self._key_mod = Qt.Key_Control
+        # CustomQGraphicsView.zoomToFit() is also a good reference...
+
+        # THIS MEANS THAT AS YOU MOVE AROUND IN CADNANO, THE ITEMS' SCENE COORDINATES CONSTANTLY CHANGE!
+        # (Not if you scale, though, only when you move.)
+
+
+        si = get_stranditem_for_strand(strand)
+        root = si.viewroot()      # Root ITEM in the scene. Parent for all other graphics items.
+        view = pathview()
+
+        # Maybe grab the graphicsView and use centerOn() ?
+
+        #scenepos = si.scenePos()     # si.pos() refers to "window" coordinates, which makes little sense to use.
+        # scenePos() returns a constant x-coordinate, which I belive is the virtualhelix coordinate.
+        # in fact, both coordinates (x and y) are the same as virtualhelixitem.scenePos.
+        # Where, relative to the helix, the stranditem is drawn is controlled by the line arguments:
+
+        strandhelixpos = linecenter(si.line()) #
+        print "strandhelixpos = %s, si.scenePos = %s" % (strandhelixpos, si.scenePos())
+        vhitem = si.virtualHelixItem()
+        # The floats are: x1, y1, x2, y2, where line goes from p1=(x1, y1) to p2=(x2,y2).
+        # These floats are in the vhitem space. The line does not have any transformation on its own.
+        # So, to translate:
+
+        # Line                      vhItem
+        # vhi space                 scene space             documentwindow space
+        #          vhi.mapToScene            view.mapFromScene
+        # linepos  ---------------> scenepos --------------> viewpos
+
+        # viewpos should be positive?
+        strandscenepos = vhitem.mapToScene(*strandhelixpos)  # Returns QPointF
+        strandviewpos = view.mapFromScene(strandscenepos)   # Returns QPoint (integers)
+        print "strandscenepos = %s, strandviewpos = %s" % (strandscenepos, strandviewpos)
+
+        # How to center on strand?
+        #   A)  Use view.centerOn(pos)
+        #   B)  Use view.translate(x, y) - you have to calculate from something?
+        #   C)  Translate the root item with sceneRootItem.translate(dx, dy)
+        #        (this is how the CustomQGraphicsView mouse/keyboard moves around)
+
+        # A) Regarding view.centerOn():
+        # "Scrolls the contents of the viewport to ensure that the scene coordinate pos, is centered in the view."
+        # However, for me it seems this doesn't really work. See the centerOnSelected() function.
+
+        # B) Regarding view.translate(dx, dy) -- doesn't work, no update.
+
+        # C) Regarding translating the root item:
+        # Question: How do you calculate the view's position? Answer: See getViewCenterPos() function.
+
+        # view.transform()  # changes when zooming, but not panning with mouse.
+        # transform vs matrix:
+        # matrix = 2-by-2, contains scale and ... rotation?
+        # transform = 3-by-3, contains matrix and translation
+        # There is a note on http://qt-project.org/doc/qt-4.8/qgraphicsview.html#translate that translate might not work.
+        # This can allegedly be fixed by adding scrollbars to the view.
+        #scrollbar = view.verticalScrollBar()
+        #scrollbar.setValue(scrollbar.value()+30) # doesn't work.
+        ## one-liner:
+        #scpos = vhitem.mapToScene(*linecenter(next(iter(get_selected_stranditems())).line()))
+        ## this work for the x-position, but not y/vertical (you also need to update vhitem...)
+        #view.centerOn(vhitem.mapToScene(*linecenter(next(iter(get_selected_stranditems())).line())))
+        # view.rect()       # QRect on the documentwindow.
+        # view.sceneRect()  # scene rectangle. Does not change if panning or zooming.
+
+        """
+
+        if strand is None:
+            strand = get_first_selected_strand()
+            if strand is None:
+                print "No strand selected, using last recorded selection:"
+                strand = current_follow_strand_tuple[0][0] # either 0 or 1
+        # get basic elements:
+        si = get_stranditem_for_strand(strand)
+        root = si.viewroot()      # Root ITEM in the scene. Parent for all other graphics items.
+        view = pathview()
+
+        # calculate translation:
+        viewcenterpos = getViewCenterPos()
+        strandpos = getRealItemScenePos(si)
+        dx = viewcenterpos.x() - strandpos.x()
+        dy = viewcenterpos.y() - strandpos.y()
+        # Translate root item (tranlating the view doesn't work, unfortunately...)
+        #print "Scene pos before translating: view=%s, strand=%s" % (viewcenterpos, strandpos)
+        if animate:
+            animator = animate_translate(root, dx, dy)
+            if animator not in animators:
+                animators.append(animator)
+            # You can use animation.finished.connect(self.remove_finished_animation)
+            # To invoke a callback.
+            # Alternative way to translate:
+            # pr.setTransform(pr.transform().fromTranslate(dx, dy))
+        else:
+            root.translate(dx, dy)
+        #print "New scene pos: view=%s, strand=%s" % (getViewCenterPos(), getRealItemScenePos(si))
+        return strand
+
+
+
+    def follow_strand(strand=None, direction='5p', stopAtEnd=True, animate=True):
+        """
+        See follow_strand_5p() doc.
+        """
+        selected_strand = None
+        if strand is None:
+            selected_strand = get_first_selected_strand()
+            # (last_selected_strand, current_follow_strand)
+            print "Selected strand: ", selected_strand
+            print "current_follow_strand_tuple[0]: ", current_follow_strand_tuple[0]
+            if selected_strand == current_follow_strand_tuple[0][0] or selected_strand is None:
+                # If either no selection or selection haven't changed:
+                strand = current_follow_strand_tuple[0][1] # Continue from the last saved strand.
+            else:
+                strand = selected_strand
+        if strand is None:
+            print "No strand specified and no strand selected, cannot center."
+            return
+
+        nextstrand = strand._strand5p if direction == '5p' else strand._strand3p
+        print "following strand: %s -- to next strand --> %s" % (strand, nextstrand)
+
+        if stopAtEnd and nextstrand is None:
+            nextstrand = strand
+        elif nextstrand is None:
+            return nextstrand
+
+        centerOnStrand(nextstrand, animate=animate)
+        current_follow_strand_tuple[0] = (selected_strand, nextstrand)
+        return nextstrand
+
+    def follow_strand_5p(strand=None, stopAtEnd=True, animate=True):
+        """
+        Follow strand in the 5p direction. If strand is none, use currently selected strand.
+        Returns the newly focused strand.
+        Use as:
+            mystrand = follow_strand_5p()           # 1) uses the currently selected strand
+            mystrand = follow_strand_5p(mystrand)   # 2) updates mystrand
+            mystrand = follow_strand_5p(mystrand)   # 3) updates mystrand again.
+            mystrand = follow_strand_3p(mystrand)   # 4) Goes back. mystrand should now be same as after step (2).
+        If stopAtEnd is True, will NOT go further, will just focus on current strand and return current strand.
+        """
+        return follow_strand(strand=strand, direction='5p', stopAtEnd=stopAtEnd, animate=animate)
+
+    def follow_strand_3p(strand=None, stopAtEnd=True, animate=True):
+        """
+        See follow_strand_5p() doc.
+        """
+        return follow_strand(strand=strand, direction='3p', stopAtEnd=stopAtEnd, animate=animate)
+
 
 
 
