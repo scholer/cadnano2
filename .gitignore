@@ -8,7 +8,8 @@ __pycache__/
 # Exclude plugins which are not part of the main/official repository:
 plugins/
 !plugins/test.py
-!plugins/autobreak/*
+!plugins/autobreak/*.py[!c]
+!plugins/autobreak
 
 # C extensions
 *.so
