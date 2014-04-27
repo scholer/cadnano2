@@ -122,7 +122,7 @@ def get_api(app=None):
 
 def a():
     """ Return main cadnano app object. """
-    return app or cadnano.app()
+    return cadnano.app()
 def d():
     """
     Shortcut to the current document. The document can hold one (and in theory more) parts.
