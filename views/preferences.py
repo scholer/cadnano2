@@ -82,6 +82,10 @@ class Preferences(object):
         to the newer, native-python typed, PyQt "API 2".
         """
         self.qs.beginGroup("Preferences")
+        ## Create attributes: For PyQt4 we need to call a conversion method to obtain the value.
+        ## If on PySide (or using the Api v2), this method call will fail, so we need to catch the exception.
+        ## We specify a list of tuples, where each tuple element is:
+        ##  <attr_name>, <pref key>, <default value>, <conversion method>.
         ## In two cases, the attribute name (e.g. "autoScafIndex") differ from the preferences key (e.g. "autoScaf"):
         prefats = [ ('honeycombRows', 'honeycombRows', 'HONEYCOMB_PART_MAXROWS', 'toInt'),
                     ('honeycombCols', 'honeycombCols', 'HONEYCOMB_PART_MAXCOLS', 'toInt'),
@@ -98,10 +102,11 @@ class Preferences(object):
             try:
                 val = getattr(qvar, conv)()
                 if conv == 'toInt':
+                    # PyQt4's .toInt() returns a tuple where the value is first element...
                     val = val[0]
             except AttributeError:
                 val = qvar
-            setattr(self, attr, val)
+            setattr(self, attr, val) # set attribute
         self.qs.endGroup()
         self.uiPrefs.honeycombRowsSpinBox.setProperty("value", self.honeycombRows)
         self.uiPrefs.honeycombColsSpinBox.setProperty("value", self.honeycombCols)
