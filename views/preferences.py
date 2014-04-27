@@ -32,7 +32,11 @@ util.qtWrapImport('QtGui', globals(), ['QWidget', 'QDialogButtonBox',\
                                        'QMessageBox'])
 
 class Preferences(object):
-    """docstring for Preferences"""
+    """
+    Preferences class used to:
+    1) Create a preferences Qt widget, self.uiPrefs, which is bound to another new parent, self.widget.
+    2) Read settings and set up event bindings (So changes in UI status is linked to the settings store).
+    """
     def __init__(self):
         self.qs = QSettings()
         self.uiPrefs = Ui_Preferences()

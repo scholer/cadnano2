@@ -28,6 +28,25 @@
 cadnanoqt
 Created by Jonathan deWerd on 2012-01-11.
 
+About the cadnano qt initialization sequence:
+    main.py                     calls cadnano.initAppWithGui(), then cadnano.app() to get a reference to the newly initialized app, sharedApp.
+    cadnano.initAppWithGui()    instances sharedApp=CadnanoQt(appArgs) followed by sharedApp.finishInit()
+    CadnanoQt.__init__()        instances self.qApp = QApplication(argv). I.e. sharedApp.qApp
+    CadnanoQt.finishInit()      instances self.d = self.newDocument(isFirstNewDoc=True). This is an "empty" document window.
+                                There is exactly ONE cadnano documentwindow (aka mainwindow) per open document.
+                                I don't think self.d is ever used for anything, but in theory it would hold the last created document.
+                                Also calls cadnano.loadAllPlugins() and conditionally creates a code.interact prompt if -i in argv
+    CadnanoQt.newDocument()     Instances DocumentController()
+    DocumentController init     Instances self._document = Document(), self.win = DocumentWindow(docCtrlr=self),
+                                emits app().documentWindowWasCreatedSignal.emit(self._document, self.win) (connected to slots in the plugins)
+                                shows the main documentwindow with self.win.show() plus does some extra stuff if in maya,
+                                connects signals, and adds it self to app().documentControllers .
+    DocumentWindow init         Sets up the mainwindow's ui elements and connects signals, nothing unexpected.
+    main.py                     Calls app.exec_() which just starts the main application event loop with self.qApp.exec_()
+
+And that's just about it. The rest is handled by the event loop.
+
+
 Regarding using IPython as interactive console in cadnano, the conclusion is that
 if a user wants this, he/she can just call main.py with ipython instead of python as:
     ipython --gui=qt -- main.py -i
@@ -61,9 +80,18 @@ This works: (the -- ensures that -i is interpreted as an argument to main.py and
 
 
 """
-import util, os
+import os
 import cadnano
-qt_selection = util.chosenQtFramework or util.find_available_qt_framework()
+import util
+import cadnano_api
+
+try:
+    qt_selection = util.chosenQtFramework or util.find_available_qt_framework()
+except AttributeError:
+    msg = "AttributeError: %s - this cadnano might be too old for this plugin, aborting load." % (e, )
+    print msg
+    qt_selection = None
+
 try:
     # On windows, readline can be provided via the pyreadline package (will create a 'readline' alias file during installation...)
     import readline     # should be imported first.
@@ -83,6 +111,13 @@ util.qtWrapImport('QtCore', globals(), ['QObject', 'QCoreApplication', 'Qt',
 #util.qtWrapImport('QtCore', globals(), ['SIGNAL', 'SLOT', 'pyqtSlot'])
 
 class CadnanoQt(QObject):
+    """
+    This is the application base object, aka sharedApp or cadnano.app().
+    This is NOT a QApplication, but the parent of self.qApp = QApplication.
+    Additional prominent child objects of a CadnanoQt objects (self):
+        self.documentControllers :  set of document controllers (will currently holds just one documentcontroller)
+
+    """
     dontAskAndJustDiscardUnsavedChanges = False
     shouldPerformBoilerplateStartupScript = False
     documentWasCreatedSignal = pyqtSignal(object)  # doc
@@ -120,54 +155,13 @@ class CadnanoQt(QObject):
             self.sharedApp.shouldPerformBoilerplateStartupScript = True
         cadnano.loadAllPlugins()
 
-        cadnanohelp = """
-Some handy locals:
-\ta\tcadnano.app() (the shared cadnano application object)
-\tdc()\tthe document controller
-\td()\tthe last created Document
-\tw()\tshortcut for d().controller().window()
-\tp()\tshortcut for d().selectedPart()
-\tpi()\tthe PartItem displaying p()
-\tvh(i)\tshortcut for p().virtualHelix(i)
-\tvhi(i)\tvirtualHelixItem displaying vh(i)
-
-\tquit()\tquit (for when the menu fails)
-\tgraphicsItm.findChild()  see help(pi().findChild)
-
-dc() controls file creation/loading/saving.
-Use dc().openAfterMaybeSaveCallback(<filepath>) to open a new file.
-If dc() is None, use a.newDocument([fp=filepath]) to create a new controller.
-
-Local modules available for import include:
-    model, controllers, ui, views, data and plugins.
-
-As always, dir() and help() are exceedingly helpful.
-For more detail on methods etc. use inspect.getsource(<module, class or function>)
-
-Note that app quit/exit is a bit flaky when interactive mode is on.
-(This might be because the application loop has not actually been initiated.)
-
-"""
-
         if "-i" in self.argv:
             print "Welcome to cadnano's debug mode!"
-            print cadnanohelp
 
-            # self.documentControllers is a set. This is an easy way to return an arbitrary element from a set:
-            dc = lambda : next(iter(self.documentControllers), None)
-            d  = lambda : self.d
-            w  = lambda : d().controller().window()
-            p  = lambda : d().selectedPart()
-            pi = lambda : w().pathroot.partItemForPart(p())
-            vh = lambda vhref : p().virtualHelix(vhref)
-            vhi = lambda vhref : pi().vhItemForVH(vh(vhref))
+            # All api shortcut functions have been factored out to the utils module.
+            # (So the functions are easier to access if running cadnano as part of a larger script!)
+            ns = cadnano_api.get_api(self)
 
-            def enableAutocomplete(ns):
-                readline.set_completer(rlcompleter.Completer(ns).complete)
-                readline.parse_and_bind("tab: complete")
-
-            ns = {'a':self, 'd':d, 'dc':dc, 'w':w, 'p':p, 'pi':pi, 'vh':vh, 'vhi':vhi,
-                  'enableAutocomplete':enableAutocomplete, 'cadnanohelp': cadnanohelp}
             if readline:
                 print "Enabling line-completion for standard code.interact mode...\n"
                 # This is required, even when invoked via ipython, to get completion for a, d, etc.
@@ -180,11 +174,12 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
 If the UI does not load properly, hit Ctrl+D to exit the interactive prompt. \
 You should still be able to run interactive mode with ipython with:   ipython --gui=qt -- main.py -i   \
 (tested with ipython 1.1.0 with PySide on Windows)"
+            print ns['cadnanohelp']
             code.interact("", local=ns)
             print "Interactive mode with code.interact complete..."
 
         # else:
-        #     self.exec_()
+        #     self.exec_()  # exec_() is invoked conditionally in main.py depending on command line arguments.
 
     def isInMaya(self):
         appName = QCoreApplication.instance().applicationName()
@@ -224,10 +219,11 @@ You should still be able to run interactive mode with ipython with:   ipython --
             print "Loaded default document: %s" % doc
         else:
             dc = next(iter(self.documentControllers), None)
-            if dc: # dc already exists
-                dc.newDocument()
+            # cadnano currently only supports ONE documentcontroller per app instance, controlling exactly ONE document.
+            if dc:                  # if a documentcontroller already exists
+                dc.newDocument()    # currently, this just empties the existing document object.
             else: # first dc
-                # dc creates a new doc during init and adds itself to app.documentControllers:
+                # A DocumentController creates a new doc during init and adds itself to app.documentControllers:
                 dc = DocumentController()
         return dc.document()
 
