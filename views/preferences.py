@@ -32,7 +32,11 @@ util.qtWrapImport('QtGui', globals(), ['QWidget', 'QDialogButtonBox',\
                                        'QMessageBox'])
 
 class Preferences(object):
-    """docstring for Preferences"""
+    """
+    Preferences class used to:
+    1) Create a preferences Qt widget, self.uiPrefs, which is bound to another new parent, self.widget.
+    2) Read settings and set up event bindings (So changes in UI status is linked to the settings store).
+    """
     def __init__(self):
         self.qs = QSettings()
         self.uiPrefs = Ui_Preferences()
@@ -101,7 +105,7 @@ class Preferences(object):
             row.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             ptw.setItem(i, 0, row)
         # self.uiPrefs.helixAddCheckBox.setChecked(self.zoomOnHelixAdd)
-        
+
 
     def restoreDefaults(self):
         self.uiPrefs.honeycombRowsSpinBox.setProperty("value", styles.HONEYCOMB_PART_MAXROWS)
@@ -274,7 +278,7 @@ has already been installed. Replace the currently installed one?")
         mb.setStandardButtons(QMessageBox.No | QMessageBox.Yes)
         mb.exec_()
         return mb.clickedButton() == mb.button(QMessageBox.Yes)
-        
+
     def removePluginsToBeOverwritten(self, filesInZip):
         for fileName, filePath in filesInZip:
             target = os.path.join(cadnano.path(), 'plugins', fileName)
