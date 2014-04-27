@@ -46,7 +46,7 @@ prng = Random()
 # only module that gets loaded. The main.py of applications actually using qt
 # need to redefine qtFramework to include PyQt and PySide.
 
-qtFrameworkList = ['PyQt', 'PySide', 'Dummy']
+qtFrameworkList = ['PyQt', 'PySide', 'Dummy'] # This is reset by cadnano.initAppWithGui() or initAppMaya()
 chosenQtFramework = None
 # def qtWrapImport(name, globaldict, fromlist):
 #     """

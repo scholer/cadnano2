@@ -26,6 +26,25 @@
 cadnanoqt
 Created by Jonathan deWerd on 2012-01-11.
 
+About the cadnano qt initialization sequence:
+    main.py                     calls cadnano.initAppWithGui(), then cadnano.app() to get a reference to the newly initialized app, sharedApp.
+    cadnano.initAppWithGui()    instances sharedApp=CadnanoQt(appArgs) followed by sharedApp.finishInit()
+    CadnanoQt.__init__()        instances self.qApp = QApplication(argv). I.e. sharedApp.qApp
+    CadnanoQt.finishInit()      instances self.d = self.newDocument(isFirstNewDoc=True). This is an "empty" document window.
+                                There is exactly ONE cadnano documentwindow (aka mainwindow) per open document.
+                                I don't think self.d is ever used for anything, but in theory it would hold the last created document.
+                                Also calls cadnano.loadAllPlugins() and conditionally creates a code.interact prompt if -i in argv
+    CadnanoQt.newDocument()     Instances DocumentController()
+    DocumentController init     Instances self._document = Document(), self.win = DocumentWindow(docCtrlr=self),
+                                emits app().documentWindowWasCreatedSignal.emit(self._document, self.win) (connected to slots in the plugins)
+                                shows the main documentwindow with self.win.show() plus does some extra stuff if in maya,
+                                connects signals, and adds it self to app().documentControllers .
+    DocumentWindow init         Sets up the mainwindow's ui elements and connects signals, nothing unexpected.
+    main.py                     Calls app.exec_() which just starts the main application event loop with self.qApp.exec_()
+
+And that's just about it. The rest is handled by the event loop.
+
+
 Regarding using IPython as interactive console in cadnano, the conclusion is that
 if a user wants this, he/she can just call main.py with ipython instead of python as:
     ipython --gui=qt -- main.py -i
@@ -81,6 +100,13 @@ util.qtWrapImport('QtCore', globals(), ['QObject', 'QCoreApplication', 'Qt',
 #util.qtWrapImport('QtCore', globals(), ['SIGNAL', 'SLOT', 'pyqtSlot'])
 
 class CadnanoQt(QObject):
+    """
+    This is the application base object, aka sharedApp or cadnano.app().
+    This is NOT a QApplication, but the parent of self.qApp = QApplication.
+    Additional prominent child objects of a CadnanoQt objects (self):
+        self.documentControllers :  set of document controllers (will currently holds just one documentcontroller)
+
+    """
     dontAskAndJustDiscardUnsavedChanges = False
     shouldPerformBoilerplateStartupScript = False
     documentWasCreatedSignal = pyqtSignal(object)  # doc
@@ -117,7 +143,6 @@ class CadnanoQt(QObject):
             self.sharedApp.shouldPerformBoilerplateStartupScript = True
         cadnano.loadAllPlugins()
 
-
         if "-i" in self.argv:
             print "Welcome to cadnano's debug mode!"
 
@@ -137,7 +162,7 @@ class CadnanoQt(QObject):
             print "Interactive mode with code.interact complete..."
 
         # else:
-        #     self.exec_()
+        #     self.exec_()  # exec_() is invoked conditionally in main.py depending on command line arguments.
 
     def isInMaya(self):
         return QCoreApplication.instance().applicationName().contains(
@@ -174,10 +199,11 @@ class CadnanoQt(QObject):
             print "Loaded default document: %s" % doc
         else:
             dc = next(iter(self.documentControllers), None)
-            if dc: # dc already exists
-                dc.newDocument()
+            # cadnano currently only supports ONE documentcontroller per app instance, controlling exactly ONE document.
+            if dc:                  # if a documentcontroller already exists
+                dc.newDocument()    # currently, this just empties the existing document object.
             else: # first dc
-                # dc creates a new doc during init and adds itself to app.documentControllers:
+                # A DocumentController creates a new doc during init and adds itself to app.documentControllers:
                 dc = DocumentController()
         return dc.document()
 

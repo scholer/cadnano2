@@ -1,6 +1,6 @@
 # The MIT License
 #
-# Copyright (c) 2011 Wyss Institute at Harvard University
+# Copyright (c) 2013 Wyss Institute at Harvard University
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,9 +26,26 @@
 
 """
 
+"API" - a series of shortcuts meant to be made available to the user,
+e.g. through the interactive prompt inside cadnano.
+
+These shortcut-functions makes it considerably more comfortable to
+use the interactive prompt, and provides a range of features not
+directly available from cadnano's UI.
+
+The functions herein also serve as a reference on how to use
+cadnano's object model programatically.
+
+Feel free to add the code you use the most as a function to this module!
+
+
+@authors: Rasmus Scholer Sorensen,
+
 """
 
+
 import cadnano
+import util
 
 try:
     import readline
@@ -37,17 +54,17 @@ except ImportError:
     readline = None
 
 import inspect
-import time, timeit
 
 animators = list()
 ANIMATE_DURATION_MSEC = 500
+ANIMATE_ENABLED_DEFAULT = True
 ANIMATE_EASINGCURVE = 0
-# 0=linear, 1=InQuad, 2=OutQuad, ..., 40=OutInBounce
-# Works well: 0, (1, 19,
+# 0=linear, 1=InQuad, 2=OutQuad, ..., 40=OutInBounce... These are good: 0, (1, 19).
 # http://qt-project.org/doc/qt-4.8/qeasingcurve.html
 
 # (last_selected_strand, current_follow_strand)
 current_follow_strand_tuple = [(None, None)]
+
 
 
 def get_api(app=None):
@@ -58,7 +75,12 @@ def get_api(app=None):
     A convenient way to invoke this is:
     locals().update(cadnano_api.get_api(a()))
 
-    If you need to reload the api module: reload(cadnano_api)
+    If you need to reload the api module:
+        reload(cadnano_api)
+    or just exec the with:
+        execfile('cadnano_api.py')
+    followed by:
+        locals().update(get_api(a()))
     """
 
     # This needs to be split out to separate module if you want to use cadnano.app()
@@ -97,6 +119,7 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
     ### Basic cadnano object shortcuts ###
 
     def a():
+        """ Return main cadnano app object. """
         return app or cadnano.app()
     def d():
         """
@@ -149,27 +172,16 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         For slice root, use w().sliceroot
         """
         return w().pathroot
-    def first(seq):
+    def first(seq, fallback=None):
         """
         Return the first encountered element in seq.
         If seq is unordered (e.g. a map), returns an arbitrary element, without removing it.
+        Note: In many cases, you can just as easy use .pop() if you are not worried about the
+        rest of the set/sequence.
         """
-        return next(iter(seq))
+        return next(iter(seq), fallback)
 
 
-
-    ## Part shortcuts ##
-
-    def get_active_baseIndex():
-        """ Returns the active baseindex (usually adjusted by the "slider"). """
-        return p().activeBaseIndex()
-
-    def set_active_baseindex(index):
-        """ Sets the active baseindex (usually adjusted by the "slider"). """
-        p().setActiveBaseIndex(index)
-
-    def get_staplesequences():
-        p().getStapleSequences()
 
     ### Strand shortcuts
 
@@ -224,7 +236,7 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         Sets the color of all selected oligos to <color>.
         """
         if isinstance(color, basestring):
-            qtWrapImport('QtCore', globals(), ['QString'])
+            util.qtWrapImport('QtCore', globals(), ['QString'])
             # PySide uses standard str as QString, but that should not be a problem.
             color = QString(color)
         selectedOs = get_selected_oligos()
@@ -237,6 +249,9 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
             for oligo in selectedOs:
                 oligo.setColor(color) # setColor does not emit the
                 oligo.oligoAppearanceChangedSignal(oligo)
+
+
+    ### STRAND ITEM FUNCTIONS ###
 
     def get_stranditem_for_strand(strand):
         """
@@ -283,6 +298,7 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         return stranditems
 
     def get_first_selected_item(key=None):
+        """ Returns an arbitrary selected item from the path view. """
         candidates = pathroot().strandItemSelectionGroup().childItems()
         if key:
             it = (item for item in candidates if key(item))
@@ -290,30 +306,9 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
             it = iter(candidates)
         return next(it, None)
 
-    def centerOnSelected(key=None):
-        """
-        Using pathview().centerOn(...)
-        Works sort-of, but as you move around, it stops working.
-        """
-        item = get_first_selected_item(key)
-        if not item:
-            return
-        # if item is a strandItem, then its scenePos will be that of its helix.
-        # If it on the other hand is an endpoint or similar, then it seems to be ok.
-        # Edit: Actually, it they might be equivalent.
-        # The difference migth be if the parent pos changes.
-        # AND, UPON SELECTION, AN ITEM IS RE-PARENTED TO THE SELECTION GROUP!!
-        try:
-            vhitem = item.virtualHelixItem()
-        except AttributeError:
-            # E.g. EndPointItems, caps, etc, has no VhItem, position should be in scene coordinates:
-            pathview().centerOn(item.scenePos())
-        else:
-            # Transform the item
-            pathview().centerOn(vhitem.mapToScene(*linecenter(item.line())))
-
 
     def linecenter(qLine):
+        """ Calculate the center point of a line. """
         x1, y1 = qLine.x1(), qLine.y1()
         x2, y2 = qLine.x2(), qLine.y2()
         return ((x1+x2)/2.0, (y1+y2)/2.0)
@@ -411,6 +406,59 @@ Note that app quit/exit is a bit flaky when interactive mode is on.
         return animation # Need to capture this, or it will be garbage-collected!
 
 
+    def centerOnScenePos(point, animate=True):
+        """
+        Translate scene root item so point is at the center of the pathview.
+        """
+        if animate is None:
+            animate = ANIMATE_ENABLED_DEFAULT
+        # calculate translation:
+        viewcenterpos = getViewCenterPos()
+        dx = viewcenterpos.x() - point.x()
+        dy = viewcenterpos.y() - point.y()
+        root = pathroot()
+        # Translate root item (tranlating the view doesn't work, unfortunately...)
+        #print "Scene pos before translating: view=%s, strand=%s" % (viewcenterpos, strandpos)
+        if animate:
+            animator = animate_translate(root, dx, dy)
+            if animator not in animators:
+                animators.append(animator)
+            # You can use animation.finished.connect(self.remove_finished_animation)
+            # To invoke a callback.
+            # Alternative way to translate:
+            # pr.setTransform(pr.transform().fromTranslate(dx, dy))
+        else:
+            root.translate(dx, dy)
+            animator = None
+        #print "New scene pos: view=%s, strand=%s" % (getViewCenterPos(), getRealItemScenePos(si))
+        return animator
+
+
+
+    def centerOnSelected(key=None, animate=None):
+        """
+        Using pathview().centerOn(...)
+        Works sort-of, but as you move around, it stops working.
+        """
+        item = get_first_selected_item(key)
+        if not item:
+            return
+        # if item is a strandItem, then its scenePos will be that of its helix.
+        # If it on the other hand is an endpoint or similar, then it seems to be ok.
+        # Edit: Actually, it they might be equivalent.
+        # The difference migth be if the parent pos changes.
+        # AND, UPON SELECTION, AN ITEM IS RE-PARENTED TO THE SELECTION GROUP!!
+        #try:
+        #    vhitem = item.virtualHelixItem()
+        #except AttributeError:
+        #    # E.g. EndPointItems, caps, etc, has no VhItem, position should be in scene coordinates:
+        #    pathview().centerOn(item.scenePos())
+        #else:
+        #    # Transform the item
+        #    pathview().centerOn(vhitem.mapToScene(*linecenter(item.line())))
+        scenepos = getRealItemScenePos(item)
+        animator = centerOnScenePos(scenepos, animate=animate)
+        return animator
 
 
 
@@ -699,9 +747,58 @@ Old comments:
         """ Returns the currently selected staple 'PaintTool' color (as hex string) """
         w().pathColorPanel.stapColorName()
 
-    def get_current_style_stap_color():
+    def get_current_style_scaf_color():
         """ Returns the currently selected scaffold 'PaintTool' color (as hex string) """
         w().pathColorPanel.scafColorName()
+
+
+
+
+    ## Part shortcuts ##
+
+    def get_active_baseIndex():
+        """ Returns the active baseindex (usually adjusted by the "slider"). """
+        return p().activeBaseIndex()
+
+    def set_active_baseindex(index):
+        """ Sets the active baseindex (usually adjusted by the "slider"). """
+        p().setActiveBaseIndex(index)
+
+    def move_active_baseindex_to_strand(strand=None, idx_point='mid'):
+        """
+        Moves the active baseindex (and slider) to the mid-point of the specified strand.
+        If no strand is provided, this will use the currently selected strand, if any.
+        idx_point can be any of:
+            'mid'   : midpoint of the strand (default)
+            'high'  : high base idx (right-most)
+            'low'   : low base idx (left-most)
+            '3p'  : 3-prime end of strand
+            '5p'  : 5-prime end of strand
+        Returns (for convenience):
+            (<strand used>, base_idx)
+        """
+        if strand is None:
+            strand = first(get_selected_strands())
+        if not strand:
+            print "No strand selected, no strand provided."
+            return
+        if idx_point == 'high':
+            idx = strand.highIdx()
+        elif idx_point == 'low':
+            idx = strand.lowIdx()
+        elif idx_point == '3p':
+            idx = strand.idx3Prime()
+        elif idx_point == '5p':
+            idx = strand.idx5Prime()
+        else:
+            idx = sum(strand.idxs())/2
+        set_active_baseindex(idx)
+        return strand
+
+
+    def get_staplesequences():
+        p().getStapleSequences()
+
 
     ### Other ###
     def get_styles():
