@@ -43,6 +43,7 @@ Feel free to add the code you use the most as a function to this module!
 
 """
 
+import re
 
 import cadnano
 import util
@@ -251,6 +252,49 @@ def set_oligos_color(color, enableRedo=True):
         for oligo in selectedOs:
             oligo.setColor(color) # setColor does not emit the
             oligo.oligoAppearanceChangedSignal(oligo)
+
+def parse_locstring(oligo_locstring):
+    # Oligos are often represented by oligo.locString() which returns <vHelixIndex>[<5pIndex>]
+    pat = re.compile(r'(\d*)\[(\d*)\](-.*)?')
+    match = pat.match(oligo_locstring)
+    if match:
+        return [int(g) for g in match.groups()[0:2]]
+    else:
+        return match, None
+
+def get_oligo_from_locstring(oligo_locstring):
+    """
+    Get oligo object from string '59[63]'.
+    Useful as:
+        centerOnStrand(get_oligo_from_locstring(<loc string>).strand5p())
+    See also:
+        get_strand_from_locstring(locstring)
+    """
+    strand = get_strand_from_locstring(oligo_locstring)
+    if not strand:
+        print "Strand not found: ", strand
+        return
+    return strand.oligo()
+
+def get_strand_from_locstring(locstring):
+    """
+    Get strand object from string '59[63]'.
+    """
+    hi, si = parse_locstring(locstring)
+    if not hi or not si:
+        print "parse_locstring(%s) returned %s, aborting!" % (locstring, (hi, si))
+        return
+    #else:
+    #    print "parse_locstring(%s) returned %s, looks good." % (locstring, (hi, si))
+    helix = vh(hi)
+    #print "Helix is: ", helix
+    # Assume the oligo is a staple strand:
+    strand = next((strand for strand in helix.stapleStrandSet() if strand.idx5Prime()==si), None)
+    if not strand:
+        print "Staple not found on staplestrandset, searching scaffoldStrandSet..."
+        strand = next((strand for strand in helix.scaffoldStrandSet() if strand.idx5Prime()==si), None)
+    return strand
+
 
 
 ### STRAND ITEM FUNCTIONS ###
