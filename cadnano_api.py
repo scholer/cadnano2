@@ -47,6 +47,8 @@ Feel free to add the code you use the most as a function to this module!
 import re
 import os
 import inspect
+from collections import deque
+
 try:
     import readline
     import rlcompleter
@@ -58,18 +60,29 @@ except ImportError:
 import cadnano
 import util
 
+util.qtWrapImport('QtGui', globals(),  ['QTransform'])
+util.qtWrapImport('QtCore', globals(),  ['QPropertyAnimation', 'pyqtProperty', 'QObject', 'QEasingCurve'])
 
 ## SETTINGS ##
 
-animators = list()
+
+#### Constants / settings for API functions #####
+
 ANIMATE_DURATION_MSEC = 500
 ANIMATE_ENABLED_DEFAULT = True
-ANIMATE_EASINGCURVE = 0
-# 0=linear, 1=InQuad, 2=OutQuad, ..., 40=OutInBounce... These are good: 0, (1, 19).
+
+# PySide QEasingCurve is NOT instantiated with an integer, but takes a QtCore.Type instance.
+ANIMATE_EASINGCURVE = QEasingCurve.Linear # This should work for both PyQt4 and PySide and is also more readable.
 # http://qt-project.org/doc/qt-4.8/qeasingcurve.html
 
+# The last animation and transform_adaptor (for PySide) must be captured,
+# otherwise they are garbage-collected before the animation completes.
+# However, I'm not sure if I just have to save the last ones or more. Using a deque with maxlen=5 for now...
+animators = deque(maxlen=5) # [None]
+transform_adaptors = deque(maxlen=5) # [None]
 # (last_selected_strand, current_follow_strand)
 current_follow_strand_tuple = [(None, None)]
+
 
 cadnanohelp = """
 Some handy locals:
@@ -419,6 +432,35 @@ def getViewCenterPos(relativeToItem=None):
         return view.mapToItem(relativeToItem, view.rect().center())
 
 
+class TranslationAdaptor(QObject):
+    def __init__(self, parent, object_to_animate, dx, dy):
+        """
+        Default constructor
+        """
+        super(TranslationAdaptor, self).__init__() # Invoke QObject init
+        self.object_to_animate = object_to_animate
+        self.t0 = t0 = object_to_animate.transform()
+        self.x0 = t0.dx()
+        self.y0 = t0.dy()
+        self.dx = dx
+        self.dy = dy
+        self._progress = 0.0
+
+    def getNewTransform(self, progress):
+        return self.t0.fromTranslate(self.x0+self.dx*progress,
+                                     self.y0+self.dy*progress)
+
+    def _getProgress(self):
+        return self._progress
+    def _setProgress(self, progress):
+        """ Value is percentage of total move, from 0..1 """
+        #progress = p.x()
+        tnew = self.getNewTransform(progress)       # Create a new transform based on 'progress' value
+        self.object_to_animate.setTransform(tnew)   # Set object's transform.
+        self._progress = progress
+        print "Progress: %s, dx(), dy(): %s" % (progress, (self.object_to_animate.transform().dx(), self.object_to_animate.transform().dy()))
+    Progress = pyqtProperty(float, _getProgress, _setProgress)
+
 
 def animate_translate(item, dx, dy, msec=ANIMATE_DURATION_MSEC):
     """
@@ -429,58 +471,37 @@ def animate_translate(item, dx, dy, msec=ANIMATE_DURATION_MSEC):
     """
     # based on http://engineersjourney.wordpress.com/2012/09/05/pyqt-and-animating-qgraphicsitem-objects/
     # see also: https://github.com/Werkov/PyQt4/tree/master/examples/animation
-    try:
-        from PyQt4.QtGui import QTransform
-        from PyQt4.QtCore import QPropertyAnimation, pyqtProperty, QObject, QEasingCurve
-    except ImportError:
-        from PySide.QtGui import QTransform
-        from PySide.QtCore import QPropertyAnimation, pyqtProperty, QObject, QEasingCurve
-
-    class TranslationAdaptor(QObject):
-        def __init__(self, parent, object_to_animate, dx, dy):
-            """
-            Default constructor
-            """
-            super(TranslationAdaptor, self).__init__() # Invoke QObject init
-            self.object_to_animate = object_to_animate
-            self.t0 = t0 = object_to_animate.transform()
-            self.x0 = t0.dx()
-            self.y0 = t0.dy()
-            self.dx = dx
-            self.dy = dy
-            self._progress = 0.0
-
-        def getNewTransform(self, progress):
-            return self.t0.fromTranslate(self.x0+self.dx*progress,
-                                         self.y0+self.dy*progress)
-
-        def _getProgress(self):
-            return self._progress
-        def _setProgress(self, progress):
-            """ Value is percentage of total move, from 0..1 """
-            #progress = p.x()
-            tnew = self.getNewTransform(progress)
-            self.object_to_animate.setTransform(tnew)
-            self._progress = progress
-            #print "Progress: %s, dx(), dy(): %s" % (progress, (self.object_to_animate.transform().dx(), self.object_to_animate.transform().dy()))
-        Progress = pyqtProperty(float, _getProgress, _setProgress)
+    #try:
+    #    from PyQt4.QtGui import QTransform
+    #    from PyQt4.QtCore import QPropertyAnimation, pyqtProperty, QObject, QEasingCurve
+    #except ImportError:
+    #    from PySide.QtGui import QTransform
+    #    from PySide.QtCore import QPropertyAnimation, Property, QObject, QEasingCurve
+    #    pyqtProperty = Property
 
     transform_adaptor = TranslationAdaptor(item, item, dx, dy)
     animation = QPropertyAnimation(transform_adaptor, 'Progress')
     animation.setDuration(msec)
     #t0 = item.transform()
-    animation.setStartValue(0.0)
+    animation.setStartValue(0.0) # Start value of "Progress" property of transform_adaptor.
     #newx, newy = t0.dx(), t0.dy()
     #t1 = t0.fromTranslate(newx, newy)
-    animation.setEndValue(1.0)
+    animation.setEndValue(1.0)  # End value of "Progress" property of transform_adaptor.
+    #animation.setLoopCount(1) # 1 is default
     # EasingCurves: http://qt-project.org/doc/qt-4.8/qeasingcurve.html
     animation.setEasingCurve(QEasingCurve(ANIMATE_EASINGCURVE))
 
     print "Starting animation..."
     animation.start()
     print "Moved dx=%s, dy=%s." % (dx, dy)
+    #transform_adaptors[0] = transform_adaptor
+    #animators[0] = animation
+    transform_adaptors.append(transform_adaptor)
     animators.append(animation)
-    return animation # Need to capture this, or it will be garbage-collected!
+    # You MUST capture this, or it will be garbage-collected!
+    # Edit: For PySide, it seems you must also capture the transform_adaptor object,
+    # or it too will be GC'ed.
+    return animation
 
 
 def centerOnScenePos(point, animate=True):
@@ -514,11 +535,16 @@ def centerOnScenePos(point, animate=True):
 
 def centerOnSelected(key=None, animate=None):
     """
-    Using pathview().centerOn(...)
-    Works sort-of, but as you move around, it stops working.
+    Center on selected item. If more items are selected, will pick an arbitrary item.
+        key :       A key function which can be used to filter the the list of selected items.
+        animate:    Whether to animate the movement (True/False/None). If None, will use the default
+                    specified by ANIMATE_ENABLED_DEFAULT variable.
+
+    Update: Using centerOnScenePos rather than pathview().centerOn(...).
     """
     item = get_first_selected_item(key)
     if not item:
+        print "No item selected, aborting..."
         return
     # if item is a strandItem, then its scenePos will be that of its helix.
     # If it on the other hand is an endpoint or similar, then it seems to be ok.
@@ -760,6 +786,32 @@ def follow_strand_3p(strand=None, stopAtEnd=True, animate=True):
     """
     return follow_strand(strand=strand, direction='3p', stopAtEnd=stopAtEnd, animate=animate)
 
+
+def zoomIn(relative=None, absolute=None):
+    """
+    Zoom In (pathview).
+    If absolute is specified, zoom to an absolute zoom level.
+    Else, zoom in (scale) using relative.
+    """
+    if absolute:
+        w().pathGraphicsView.zoomIn(absolute)
+        return
+    if relative is None:
+        relative = 1.2
+    w().pathGraphicsView.scale(relative, relative)
+
+def zoomOut(relative=None, absolute=None):
+    """
+    Zoom Out (in the pathview).
+    If absolute is specified, zoom to an absolute zoom level.
+    Else, zoom in (scale) using relative.
+    """
+    if absolute:
+        w().pathGraphicsView.zoomOut(absolute)
+        return
+    if relative is None:
+        relative = 1.2
+    w().pathGraphicsView.scale(1.0/relative, 1.0/relative)
 
 
 
