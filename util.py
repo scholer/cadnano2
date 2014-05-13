@@ -135,11 +135,13 @@ def qtWrapImportFromPySide(name, globaldict, fromlist):
     imports = __import__(modName, globaldict, locals(), fromlist, -1)
     canary = object()
     for key in fromlist:
-        if key in ('pyqtSignal', 'pyqtSlot', 'QString', 'QStringList'):
+        if key in ('pyqtSignal', 'pyqtSlot', 'QString', 'QStringList', 'pyqtProperty'):
             if key == 'pyqtSignal':
                 globaldict[key] = getattr(imports, 'Signal')
             elif key == 'pyqtSlot':
                 globaldict[key] = getattr(imports, 'Slot')
+            elif key == 'pyqtProperty':
+                globaldict[key] = getattr(imports, 'Property')
             elif key == 'QString':
                 globaldict[key] = str
             elif key == 'QStringList':
