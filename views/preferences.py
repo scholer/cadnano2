@@ -102,14 +102,17 @@ class Preferences(object):
                     ('zoomSpeed', 'zoomSpeed', 'PREF_ZOOM_SPEED', 'toInt'),
                     ('zoomOnHelixAdd', 'zoomOnHelixAdd', 'PREF_ZOOM_AFTER_HELIX_ADD', 'toBool')]
         for attr, prefkey, default, conv in prefats:
-            qvar = self.qs.value(attr, getattr(styles, default))
+            val = self.qs.value(attr, getattr(styles, default))
             try:
-                val = getattr(qvar, conv)()
-                if conv == 'toInt':
-                    # PyQt4's .toInt() returns a tuple where the value is first element...
-                    val = val[0]
+                #val = getattr(qvar, conv)()
+                # Some of PyQt4 QVariant conversion methods, e.g. .toInt(), returns a tuple where the value is first element and the second is whether the conversion succeeded...
+                #if conv in ('toInt', 'toFloat', 'toLongLong', 'toReal', 'toUInt', 'toULongLong'):
+                #    val = val[0]
+                # Edit: Instead of specifying explicit conversion methods, you can probably simply use 'toPyObject:
+                # This also has the advantage of always only returning the value (and not a tuple in some cases).
+                val = val.toPyObject()
             except AttributeError:
-                val = qvar
+                pass
             setattr(self, attr, val) # set attribute
         self.qs.endGroup()
         self.uiPrefs.honeycombRowsSpinBox.setProperty("value", self.honeycombRows)
