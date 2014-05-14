@@ -130,6 +130,8 @@ def qtWrapImportFromPySide(name, globaldict, fromlist):
     Remember that if you want interactive mode with ipython, you should run as:
         ipython --gui=qt -- main.py -i
 
+    For an overview of the differences between PySide and PyQt, see for instance:
+    * http://help.autodesk.com/view/MAYAUL/2015/ENU/?guid=__files_GUID_3F96AF53_A47E_4351_A86A_396E7BFD6665_htm
     """
     modName = 'PySide.%s'%(name)
     imports = __import__(modName, globaldict, locals(), fromlist, -1)

@@ -129,7 +129,9 @@ def get_api(app=None):
     #    app = cadnano.app() # App singleton
     # locals() are the local variables, available only from within this function (i.e. defined here).
     # globals() are all the variables that is accessible from here, but which were not defined here.
-    return {k : v for k, v in globals().items() if k[0] != '_'}
+    # return {k : v for k, v in globals().items() if k[0] != '_'}
+    # Dict comprehensions is not compatible with Maya2012's python2.6, so falling back to :
+    return dict((k, v) for k, v in globals().items() if k[0] != '_')
 
 
 ### Basic cadnano object shortcuts ###
@@ -202,7 +204,7 @@ def first(seq, fallback=None):
 ### Strand shortcuts
 
 def get_selected_strands():
-    selectedStrands = {strand for strandSet, strands in d().selectionDict().items() for strand in strands}
+    selectedStrands = set(strand for strandSet, strands in d().selectionDict().items() for strand in strands)
     return selectedStrands
 
 def get_first_selected_strand():
@@ -227,7 +229,9 @@ def get_selected_oligos():
     #    for strand in sS:                      # here, d().selectedOligos() includes ALL strands in the strandset,
     #         selectedOs.add(strand.oligo())    # where strandset is in sDict if only a single strand is selected.
     #return selectedOs if len(selectedOs) > 0 else None
-    selectedOs = {strand.oligo() for strandSet, strands in d().selectionDict().items() for strand in strands}
+    #selectedOs = {strand.oligo() for strandSet, strands in d().selectionDict().items() for strand in strands}
+    # Set comprehensions are also not supported by Maya2012's python2.6, :
+    selectedOs = set(strand.oligo() for strandSet, strands in d().selectionDict().items() for strand in strands)
     return selectedOs
 
 
@@ -235,7 +239,7 @@ def get_oligo_colors():
     """
     Returns a set of colors used by the currently selected oligos.
     """
-    return {oligo.color() for oligo in get_selected_oligos()}
+    return set(oligo.color() for oligo in get_selected_oligos())
 
 
 def get_oligo_color():
