@@ -31,6 +31,13 @@ util.qtWrapImport('QtGui', globals(), ['QWidget', 'QDialogButtonBox',\
                                        'QTableWidgetItem', 'QFileDialog',\
                                        'QMessageBox'])
 
+def getqvarvalue(qvariant):
+    """ Returns QVariant value using toPyObject(); PySide compatible. """
+    try:
+        return qvariant.toPyObject()
+    except AttributeError:
+        return qvariant
+
 class Preferences(object):
     """
     Preferences class used to:
@@ -77,43 +84,22 @@ class Preferences(object):
 
     def readPreferences(self):
         """
-        Switched from very good and pythonic EXPLICIT code
-        to ugly, IMPLICIT code.
-        The code becomes even uglier by the fact that
-        toInt returns [<int value>, <bool convertion ok>], while
-        toBool return simply <bool value>, toString returns <QString>, etc...
-        In any case, it would probably be better to switch from legacy PyQt "API 1"
-        to the newer, native-python typed, PyQt "API 2".
+        Read preferences.
+        PySide support is implemented through getqvarvalue() function call.
+        Thought: Wouldn't it be better to implement all "preferences" attributes
+        as python properties instead and get/set dynamically from the QSettings store?
         """
         self.qs.beginGroup("Preferences")
-        ## Create attributes: For PyQt4 we need to call a conversion method to obtain the value.
-        ## If on PySide (or using the Api v2), this method call will fail, so we need to catch the exception.
-        ## We specify a list of tuples, where each tuple element is:
-        ##  <attr_name>, <pref key>, <default value>, <conversion method>.
-        ## In two cases, the attribute name (e.g. "autoScafIndex") differ from the preferences key (e.g. "autoScaf"):
-        prefats = [ ('honeycombRows', 'honeycombRows', 'HONEYCOMB_PART_MAXROWS', 'toInt'),
-                    ('honeycombCols', 'honeycombCols', 'HONEYCOMB_PART_MAXCOLS', 'toInt'),
-                    ('honeycombSteps', 'honeycombSteps', 'HONEYCOMB_PART_MAXSTEPS', 'toInt'),
-                    ('squareRows', 'squareRows', 'SQUARE_PART_MAXROWS', 'toInt'),
-                    ('squareCols', 'squareCols', 'SQUARE_PART_MAXCOLS', 'toInt'),
-                    ('squareSteps', 'squareSteps', 'SQUARE_PART_MAXSTEPS', 'toInt'),
-                    ('autoScafIndex', 'autoScaf', 'PREF_AUTOSCAF_INDEX', 'toInt'), ## FFS.
-                    ('startupToolIndex', 'startupTool', 'PREF_STARTUP_TOOL_INDEX', 'toInt'), ## FFS.
-                    ('zoomSpeed', 'zoomSpeed', 'PREF_ZOOM_SPEED', 'toInt'),
-                    ('zoomOnHelixAdd', 'zoomOnHelixAdd', 'PREF_ZOOM_AFTER_HELIX_ADD', 'toBool')]
-        for attr, prefkey, default, conv in prefats:
-            val = self.qs.value(attr, getattr(styles, default))
-            try:
-                #val = getattr(qvar, conv)()
-                # Some of PyQt4 QVariant conversion methods, e.g. .toInt(), returns a tuple where the value is first element and the second is whether the conversion succeeded...
-                #if conv in ('toInt', 'toFloat', 'toLongLong', 'toReal', 'toUInt', 'toULongLong'):
-                #    val = val[0]
-                # Edit: Instead of specifying explicit conversion methods, you can probably simply use 'toPyObject:
-                # This also has the advantage of always only returning the value (and not a tuple in some cases).
-                val = val.toPyObject()
-            except AttributeError:
-                pass
-            setattr(self, attr, val) # set attribute
+        self.honeycombRows = getqvarvalue(self.qs.value("honeycombRows", styles.HONEYCOMB_PART_MAXROWS))
+        self.honeycombCols = getqvarvalue(self.qs.value("honeycombCols", styles.HONEYCOMB_PART_MAXCOLS))
+        self.honeycombSteps = getqvarvalue(self.qs.value("honeycombSteps", styles.HONEYCOMB_PART_MAXSTEPS))
+        self.squareRows = getqvarvalue(self.qs.value("squareRows", styles.SQUARE_PART_MAXROWS))
+        self.squareCols = getqvarvalue(self.qs.value("squareCols", styles.SQUARE_PART_MAXCOLS))
+        self.squareSteps = getqvarvalue(self.qs.value("squareSteps", styles.SQUARE_PART_MAXSTEPS))
+        self.autoScafIndex = getqvarvalue(self.qs.value("autoScaf", styles.PREF_AUTOSCAF_INDEX))
+        self.startupToolIndex = getqvarvalue(self.qs.value("startupTool", styles.PREF_STARTUP_TOOL_INDEX))
+        self.zoomSpeed = getqvarvalue(self.qs.value("zoomSpeed", styles.PREF_ZOOM_SPEED))
+        self.zoomOnHelixAdd = getqvarvalue(self.qs.value("zoomOnHelixAdd", styles.PREF_ZOOM_AFTER_HELIX_ADD))
         self.qs.endGroup()
         self.uiPrefs.honeycombRowsSpinBox.setProperty("value", self.honeycombRows)
         self.uiPrefs.honeycombColsSpinBox.setProperty("value", self.honeycombCols)
