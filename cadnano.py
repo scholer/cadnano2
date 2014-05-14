@@ -121,9 +121,17 @@ def loadPlugin(f):
         return mod
     except KeyError:
         pass
-    fp, filename, data = imp.find_module(name, [path])
-    mod = imp.load_module(name, fp, filename, data)
-    loadedPlugins[pluginKey] = mod
+    # Python 2.6's imp.load_module doesn't accept windows symlinks.
+    # Also, catching ImportErrors here just seems like a good idea.
+    try:
+        fp, filename, data = imp.find_module(name, [path])
+        mod = imp.load_module(name, fp, filename, data)
+        loadedPlugins[pluginKey] = mod
+    except ImportError as e:
+        print """ImportError while importing plugin %s: "%s" - this may be due \
+to an old version of python (e.g. if you are running within Maya) \
+or it could be that the plugin is not properly installed.""" % (name, e)
+        mod = None
     return mod
 
 def loadAllPlugins():
