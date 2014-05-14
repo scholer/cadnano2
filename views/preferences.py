@@ -31,18 +31,48 @@ util.qtWrapImport('QtGui', globals(), ['QWidget', 'QDialogButtonBox',\
                                        'QTableWidgetItem', 'QFileDialog',\
                                        'QMessageBox'])
 
+"""
+preferences module, using the QSettings class to provide platform-independent,
+native access to application config.
+On Linux, the config is saved as file under <home-dir>/.config/cadnano.org.conf
+in INI format. On windows, the config is saved in the registry under
+    \HKEY_CURRENT_USER\Software\cadnano.org\OrganizationDefaults\
+On OS X: ?
+(But the point is: the location where the config is persisted doesn't matter.)
+"""
+
+
 def getqvarvalue(qvariant):
-    """ Returns QVariant value using toPyObject(); PySide compatible. """
-    try:
-        return qvariant.toPyObject()
-    except AttributeError:
+    """
+    Returns QVariant value using toPyObject(); PySide compatible.
+    When QSettings loads config file, the
+    """
+    if isinstance(qvariant, (int, bool)):
+        # No reason to convert...
         return qvariant
+    elif isinstance(qvariant, (str, unicode)):
+        pass
+    else:
+        try:
+            val = qvariant.toPyObject()     # PyQt
+        except AttributeError:
+            val = qvariant                  # PySide
+    # When qvariant is read from settings it may be a string: 'True', '30', etc.
+    # We usually want the corresponding integer/boolean value...
+    try:
+        val = int(val)
+    except ValueError:
+        if val in ('True', 'False'):
+            val = bool(val)
+    return val
 
 class Preferences(object):
     """
     Preferences class used to:
     1) Create a preferences Qt widget, self.uiPrefs, which is bound to another new parent, self.widget.
     2) Read settings and set up event bindings (So changes in UI status is linked to the settings store).
+
+    Available from API with a().prefs, where a() is the cadnano sharedApp.
     """
     def __init__(self):
         self.qs = QSettings()
