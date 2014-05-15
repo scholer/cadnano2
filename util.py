@@ -64,25 +64,33 @@ def qtWrapImport(name, globaldict, fromlist):
     """
     global qtWrapFramework  # This method is a stub. It gets swapped out for
     global qtFrameworkList  # a framework-specific version when called
+    global qtWrapImport
+    global chosenQtFramework
+    print "qtWrapImport: chosenQtFramework is currently '%s', and qtWrapImport global is: %s" % (chosenQtFramework, qtWrapImport.__name__)
     for trialFmwk in qtFrameworkList:
         if trialFmwk == 'PyQt':
             try:
                 import PyQt4
                 chosenQtFramework = 'PyQt'
-                qtWrapImport = qtWrapImportFromPyQt
+                qtWrapImport = qtWrapImportFromPyQt     # This has no global effect...
+                print "util.qtWrapImport: Using PyQt4 - setting chosenQtFramework=PyQt and redefining qtWrapImport global."
                 return qtWrapImport(name, globaldict, fromlist)
             except ImportError:
-                pass
+                #pass
+                print "Could not import PyQt4..."
         elif trialFmwk == 'PySide':
             try:
                 import PySide
                 chosenQtFramework = 'PySide'
                 qtWrapImport = qtWrapImportFromPySide
+                print "util.qtWrapImport: Using PySide - setting chosenQtFramework=PySide and redefining qtWrapImport global."
                 return qtWrapImport(name, globaldict, fromlist)
             except ImportError:
-                pass
+                #pass
+                print "Could not import PyQt4..."
         elif trialFmwk == 'Dummy':
             qtWrapImport = qtWrapImportFromDummy
+            print "util.qtWrapImport: Using Dummy framework - redefining qtWrapImport global but will NOT set chosenQtFramework."
             return qtWrapImport(name, globaldict, fromlist)
         else:
             raise NameError('Illegal qt framework %s'%trialFmwk)
