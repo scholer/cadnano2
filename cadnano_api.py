@@ -43,18 +43,23 @@ Feel free to add the code you use the most as a function to this module!
 
 """
 
+## Standard lib imports ##
 import re
-
-import cadnano
-import util
-
+import os
+import inspect
 try:
     import readline
     import rlcompleter
 except ImportError:
     readline = None
 
-import inspect
+
+## CADNANO MODULE imports ##
+import cadnano
+import util
+
+
+## SETTINGS ##
 
 animators = list()
 ANIMATE_DURATION_MSEC = 500
@@ -221,19 +226,27 @@ def get_selected_oligos():
     selectedOs = set(strand.oligo() for strandSet, strands in d().selectionDict().items() for strand in strands)
     return selectedOs
 
+def get_all_oligos():
+    """ Returns all oligos in the part --- p().oligos() """
+    return p().oligos()
 
-def get_oligo_colors():
+
+def get_oligo_colors(oligos=None):
     """
     Returns a set of colors used by the currently selected oligos.
     """
-    return set(oligo.color() for oligo in get_selected_oligos())
+    if oligos is None:
+        oligos = get_selected_oligos()
+        if not oligos:
+            oligos = get_all_oligos()
+    return set(oligo.color() for oligo in oligos)
 
 
 def get_oligo_color():
     """
     Returns the color of the currently selected oligo. If more oligos are selected,
     returns the color of an arbitrary.
-    If no oligos are selected, returns None
+    If no oligos are selected, returns an arbitrary color from the set of all oligos.
     """
     return next(iter(get_oligo_colors()), None)
 
@@ -256,6 +269,20 @@ def set_oligos_color(color, enableRedo=True):
         for oligo in selectedOs:
             oligo.setColor(color) # setColor does not emit the
             oligo.oligoAppearanceChangedSignal(oligo)
+
+
+def get_oligos_with_color(color):
+    """
+    Returns the set of oligos that has color <color>.
+    """
+    if isinstance(color, basestring):
+        util.qtWrapImport('QtCore', globals(), ['QString'])
+        if color[0] != "#" and len(color) == 6:
+            # Probably forgot to add '#' in #ff00ff:
+            color = '#'+color
+        color = QString(color.lower())  # colors should be lower-case
+    return set(oligo for oligo in get_all_oligos() if oligo.color() == color)
+
 
 def parse_locstring(oligo_locstring):
     # Oligos are often represented by oligo.locString() which returns <vHelixIndex>[<5pIndex>]
@@ -846,8 +873,66 @@ def move_active_baseindex_to_strand(strand=None, idx_point='mid'):
     return strand
 
 
+
+### SEQUENCE RELATED ###
+
 def get_staplesequences():
+    """ Returns the sequences of all staples. Beware of circular oligos. """
     p().getStapleSequences()
+
+def read_file(filepath):
+    """ Reads file and returns content in full. """
+    with open(filepath) as fd:
+        content = fd.read()
+    return content
+
+def set_addtool_seq(seq):
+    """ Inserts sequence <seq> in the addSeqTool dialog's custom sequence text edit box. """
+    try:
+        tool = w().pathToolManager.addSeqTool
+        #dia = tool.dialog
+        #oldseq = tool.seqBox.toPlainText().toUpper()
+        tool.seqBox.setPlainText(seq.strip())
+        tool.useCustomSequence = True
+    except AttributeError as e:
+        print "AttributeError while setting sequence:", e
+
+def load_sequence_from_file(filepath):
+    """
+    Loads a sequence from file
+    """
+    seq = read_file(filepath).strip()
+    set_addtool_seq(seq)
+    return seq
+
+def apply_sequence(seq, useUndoStack=True):
+    #get_all_oligos
+    scaf_oligo = next(o for o in p().oligos() if not o.isStaple())
+    scaf_oligo.applySequence(seq, useUndoStack=useUndoStack)
+
+
+def apply_sequence_from_file(filepath, useUndoStack=True):
+    """
+    Loads sequence from file <filepath> and attempts to apply it to the scaffold.
+    """
+    seq = load_sequence_from_file(filepath)
+    apply_sequence(seq, useUndoStack)
+
+
+
+def exportStaplesToFile(filepath=None):
+    """
+    Export staples with sequences to file.
+    If filepath is None, will use the current document's filename
+    appended with '.staples.csv'
+    """
+    if filepath is None:
+        filepath = os.path.splitext(get_filename())[0]+'.staples.csv'
+    output = p().getStapleSequences()
+    with open(filepath, 'w') as fd:
+        fd.write(output)
+    print "Staple sequences written to file:", filepath
+
 
 
 ### Other ###
