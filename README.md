@@ -1,6 +1,6 @@
 The MIT License
 
-Copyright (c) 2011 Wyss Institute at Harvard University
+Copyright (c) 2011–2014 Wyss Institute at Harvard University
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -34,7 +34,7 @@ to facilitate a process that can be complex and error-prone.
 * Download a [package installer](http://cadnano.org/license#download)
 
 ### Required Dependencies
-* [Qt 4.7](http://qt.nokia.com/products/)
+* [Qt 4.7](http://download.qt-project.org/archive/qt/4.7/) (e.g. 4.7.4)
 * [PyQt](http://www.riverbankcomputing.co.uk/software/pyqt/intro) or [PySide](http://www.pyside.org/)
 * [python-cjson](http://pypi.python.org/pypi/python-cjson)
 
