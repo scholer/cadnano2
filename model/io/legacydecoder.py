@@ -249,8 +249,12 @@ def import_legacy_dict(document, obj, latticeType=LatticeType.Honeycomb):
         for baseIdx in range(len(stap)):
             sumOfInsertSkip = insertions[baseIdx] + skips[baseIdx]
             if sumOfInsertSkip != 0:
-                strand = scafStrandSet.getStrand(baseIdx)
-                strand.addInsertion(baseIdx, sumOfInsertSkip, useUndoStack=False)
+                scaf_strand = scafStrandSet.getStrand(baseIdx)
+                stap_strand = stapStrandSet.getStrand(baseIdx)
+                if scaf_strand:
+                    scaf_strand.addInsertion(baseIdx, sumOfInsertSkip, useUndoStack=False)
+                elif stap_strand:
+                    stap_strand.addInsertion(baseIdx, sumOfInsertSkip, useUndoStack=False)
         # end for
         # populate colors
         for baseIdx, colorNumber in helix['stap_colors']:
