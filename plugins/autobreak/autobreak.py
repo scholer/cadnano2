@@ -10,7 +10,9 @@ from operator import itemgetter
 try:
     import staplegraph
     nx = True
-except:
+except Exception as e:
+    print("AutoBreak warning - Could not import staplegraph!")
+    print(e)
     nx = False
 
 token_cache = {}
